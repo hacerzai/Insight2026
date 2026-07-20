@@ -260,6 +260,16 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     window.addEventListener("beforeunload", () => { if (state.stream) state.stream.getTracks().forEach((t) => t.stop()); });
     navigator.serial?.addEventListener("disconnect", () => { state.writer = null; state.port = null; updateSerialUI(false); toast("Arduino disconnected"); });
   }
-  function init() { createParticles(); loadStats(); bind(); say("idle"); listCameras(); loadModel(); }
+  function init() {
+    createParticles(); loadStats(); bind(); say("idle"); listCameras(); loadModel();
+    let frame = 0;
+    window.addEventListener("pointermove", (event) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        document.documentElement.style.setProperty("--mx", `${event.clientX}px`);
+        document.documentElement.style.setProperty("--my", `${event.clientY}px`);
+      });
+    }, { passive: true });
+  }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
