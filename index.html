@@ -11,7 +11,7 @@
 </head>
 <body>
 <main id="app" class="app" data-quality="high">
-      <div class="ambient" aria-hidden="true"><div class="grid-floor"></div><div id="particles" class="particles"></div></div>
+      <div class="ambient" aria-hidden="true"><div class="grid-floor"></div><div id="particles" class="particles"></div><div class="aurora-orb orb-a"></div><div class="aurora-orb orb-b"></div><div class="energy-rail rail-left"></div><div class="energy-rail rail-right"></div></div>
 
       <header class="topbar">
         <a class="brand" href="#app" aria-label="TinyBot AI home">
@@ -28,6 +28,7 @@
           <button class="icon-button" id="settingsOpen" aria-label="Open settings" title="Settings">⚙</button>
         </div>
       </header>
+      <div class="signal-rail" aria-hidden="true"><span>VISION CORE</span><i></i><b>GESTURE CLASSIFICATION</b><i></i><span>SERIAL ROBOTICS</span></div>
 
       <section class="arena" aria-label="Rock paper scissors arena">
         <aside class="score-panel glass-panel">
@@ -45,7 +46,7 @@
 
         <div class="game-stage">
           <div class="stage-status"><i></i><span id="stageStatus">SYSTEM READY</span><i></i></div>
-          <div class="camera-shell" id="cameraShell">
+          <div class="camera-shell" id="cameraShell"><div class="target-reticle" aria-hidden="true"><i></i><i></i><i></i></div>
             <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
             <video id="webcam" autoplay muted playsinline aria-label="Live camera feed"></video>
             <canvas id="captureCanvas" width="640" height="480" aria-hidden="true"></canvas>
@@ -61,7 +62,7 @@
             <div class="result-flash" id="resultFlash"></div>
           </div>
 
-          <div class="prediction-card glass-panel">
+          <div class="prediction-card glass-panel"><div class="prediction-sheen" aria-hidden="true"></div>
             <div class="move-symbol" id="playerMoveIcon">—</div>
             <div class="prediction-main">
               <span>YOUR MOVE</span>
@@ -80,7 +81,7 @@
 
         <aside class="robot-panel glass-panel" id="robotPanel">
           <div class="panel-label"><span>TINYBOT // V1.0</span><i></i></div>
-          <div class="robot-wrap">
+          <div class="robot-wrap"><div class="core-halo" aria-hidden="true"><i></i><i></i><i></i></div>
             <div class="orbit-ring"><i></i><i></i><i></i></div>
             <div class="antenna"><i></i></div>
             <div class="robot-head">
@@ -126,7 +127,7 @@
         <p class="settings-note">Teachable Machine model status: <b id="modelStatus">INITIALIZING</b></p>
       </aside>
 
-      <div class="toast" id="toast" role="status" aria-live="polite"></div></main>
+      <footer class="micro-footer"><span>TINYBOT // EXPERIMENT 01</span><i></i><span>BUILT FOR INSIGHT 2026</span><i></i><span>HUMAN VS MACHINE</span></footer><div class="toast" id="toast" role="status" aria-live="polite"></div></main>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js" defer></script>
 <script src="script.js" defer></script>
