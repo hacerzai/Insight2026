@@ -1,7 +1,11 @@
-/* TinyBot AI — production interaction layer (vanilla JavaScript)
-   Replace only these two URLs after exporting your own Teachable Machine image model. */
-const MODEL_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/model.json";
-const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/metadata.json";
+/* TinyBot AI — production interaction layer (vanilla JavaScript).
+   MediaPipe is loaded from the browser ESM build of @mediapipe/tasks-vision so
+   the exhibition site remains compatible with VS Code Go Live. */
+const MEDIAPIPE_PACKAGE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+const WASM_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+const MODEL_ASSET_PATH = "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
+const MIN_GESTURE_CONFIDENCE = 0.70;
+const STABLE_DETECTIONS_REQUIRED = 4;
 
 (() => {
   "use strict";
@@ -12,6 +16,11 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     paper: { label: "PAPER", icon: "✋", serial: "P" },
     scissors: { label: "SCISSORS", icon: "✌️", serial: "S" },
   };
+  const GESTURE_MAP = {
+    Closed_Fist: "rock",
+    Open_Palm: "paper",
+    Victory: "scissors",
+  };
   const dialogue = {
     idle: ["Awaiting challenger...", "My neural circuits are ready.", "Show me what humans can do."],
     thinking: ["Interesting...", "Predicting your strategy...", "Calculating all outcomes...", "Reading your pattern..."],
@@ -21,9 +30,16 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     boss: ["Boss protocol engaged.", "No more mercy, human.", "Maximum cognition activated."],
   };
   const state = {
-    model: null,
+    recognizer: null,
+    DrawingUtils: null,
+    GestureRecognizer: null,
     stream: null,
-    predicting: false,
+    animationFrameId: null,
+    detecting: false,
+    lastVideoTime: -1,
+    stableMove: null,
+    stableCount: 0,
+    locked: false,
     playing: false,
     muted: true,
     port: null,
@@ -37,13 +53,6 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
 
   function randomItem(items) { return items[Math.floor(Math.random() * items.length)]; }
   function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
-  function normalizeClass(name) {
-    const value = String(name).toLowerCase().trim();
-    if (value.includes("rock")) return "rock";
-    if (value.includes("paper")) return "paper";
-    if (value.includes("scissor")) return "scissors";
-    return null;
-  }
   function say(group) { $("speech").innerHTML = `<i></i>${randomItem(dialogue[group])}`; }
   function setRobotMode(mode = "") {
     $("robotPanel").classList.remove("thinking", "win-mode", "lose-mode", "boss-mode");
@@ -77,17 +86,35 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     $("averageConfidence").textContent = s.games ? `${Math.round(state.confidenceTotal / s.games)}%` : "0%";
   }
 
+  async function createRecognizer(GestureRecognizer, vision, delegate) {
+    return GestureRecognizer.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: MODEL_ASSET_PATH, delegate },
+      runningMode: "VIDEO",
+      numHands: 1,
+      minHandDetectionConfidence: 0.6,
+      minHandPresenceConfidence: 0.6,
+      minTrackingConfidence: 0.6,
+    });
+  }
   async function loadModel() {
     $("modelStatus").textContent = "LOADING 0%"; $("stageStatus").textContent = "LOADING NEURAL ENGINE · 0%";
     try {
-      if (!window.tmImage) throw new Error("Teachable Machine library did not load");
-      await sleep(220); $("modelStatus").textContent = "LOADING 35%"; $("stageStatus").textContent = "LOADING NEURAL ENGINE · 35%";
-      state.model = await window.tmImage.load(MODEL_URL, METADATA_URL);
+      const { FilesetResolver, GestureRecognizer, DrawingUtils } = await import(MEDIAPIPE_PACKAGE_URL);
+      const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
+      state.DrawingUtils = DrawingUtils;
+      state.GestureRecognizer = GestureRecognizer;
+      $("modelStatus").textContent = "LOADING 55%"; $("stageStatus").textContent = "LOADING HAND AI · 55%";
+      try {
+        state.recognizer = await createRecognizer(GestureRecognizer, vision, "GPU");
+      } catch (gpuError) {
+        console.warn("MediaPipe GPU delegate unavailable; using CPU:", gpuError);
+        state.recognizer = await createRecognizer(GestureRecognizer, vision, "CPU");
+      }
       $("modelStatus").textContent = "READY"; $("modelStatus").style.color = "var(--green)";
-      $("stageStatus").textContent = "NEURAL ENGINE READY";
-      toast("AI model online");
+      $("stageStatus").textContent = "MEDIAPIPE HAND AI READY";
+      toast("MediaPipe gesture AI online");
     } catch (error) {
-      console.error("TinyBot model load failed:", error);
+      console.error("MediaPipe Gesture Recognizer load failed:", error);
       $("modelStatus").textContent = "MODEL OFFLINE"; $("modelStatus").style.color = "var(--red)";
       $("stageStatus").textContent = "MODEL OFFLINE · CHECK WI-FI";
       toast("AI model could not load — check Wi‑Fi");
@@ -104,39 +131,74 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera API unavailable");
       if (state.stream) state.stream.getTracks().forEach((track) => track.stop());
-      state.stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false });
+      state.stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, facingMode: "user" }, audio: false });
       const video = $("webcam"); video.srcObject = state.stream; await video.play();
+      const canvas = $("captureCanvas"); canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480;
       $("cameraEmpty").classList.add("hidden");
       $("cameraButton").textContent = "◉ CAMERA ACTIVE";
-      $("resolutionLabel").textContent = `${video.videoWidth || 1280} × ${video.videoHeight || 720}`;
-      $("stageStatus").textContent = state.model ? "SYSTEM READY · MAKE YOUR MOVE" : "CAMERA READY · AI LOADING";
+      $("resolutionLabel").textContent = `${video.videoWidth || 640} × ${video.videoHeight || 480}`;
+      $("stageStatus").textContent = state.recognizer ? "SYSTEM READY · MAKE YOUR MOVE" : "CAMERA READY · AI LOADING";
       await listCameras();
-      if (!state.predicting) { state.predicting = true; requestAnimationFrame(predictionLoop); }
+      if (state.animationFrameId === null) state.animationFrameId = requestAnimationFrame(predictionLoop);
       playSound("click"); toast("Camera connected");
     } catch (error) {
       console.error("Camera error:", error); toast(error.name === "NotAllowedError" ? "Camera permission was denied" : "Could not start the camera");
       $("stageStatus").textContent = "CAMERA ACCESS REQUIRED";
     }
   }
-  async function predictionLoop() {
-    if (!state.predicting) return;
+  function resetStableDetection(clearDisplay = true) {
+    state.latest = { move: null, confidence: 0 };
+    state.stableMove = null;
+    state.stableCount = 0;
+    state.locked = false;
+    state.lastVideoTime = -1;
+    if (clearDisplay) {
+      $("predictionText").textContent = "WAITING";
+      $("playerMoveIcon").textContent = "—";
+      $("confidenceValue").textContent = "0%";
+      $("confidenceBar").style.width = "0%";
+    }
+  }
+  function clearLandmarks() {
+    const canvas = $("captureCanvas");
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  }
+  function drawLandmarks(result) {
+    const canvas = $("captureCanvas"), context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (!result.landmarks?.length || !state.DrawingUtils || !state.GestureRecognizer) return;
+    const drawing = new state.DrawingUtils(context);
+    for (const landmarks of result.landmarks) {
+      drawing.drawConnectors(landmarks, state.GestureRecognizer.HAND_CONNECTIONS, { color: "#00e5ff", lineWidth: 3 });
+      drawing.drawLandmarks(landmarks, { color: "#55ffb2", fillColor: "#020508", lineWidth: 2, radius: 4 });
+    }
+  }
+  function processDetectedMove(move, confidence) {
+    renderPrediction(move, confidence);
+    if (state.locked) return;
+    if (move === state.stableMove) state.stableCount += 1;
+    else { state.stableMove = move; state.stableCount = 1; }
+    if (state.stableCount >= STABLE_DETECTIONS_REQUIRED) {
+      state.latest = { move, confidence };
+      state.locked = true;
+      $("stageStatus").textContent = `${MOVES[move].label} LOCKED · ${Math.round(confidence * 100)}%`;
+    }
+  }
+  function predictionLoop() {
     const video = $("webcam");
-    if (state.model && video.readyState >= 2) {
+    if (state.detecting && state.recognizer && video.readyState >= 2 && video.currentTime !== state.lastVideoTime) {
       try {
-        const results = await state.model.predict(video, false);
-        const top = results.slice().sort((a, b) => b.probability - a.probability)[0];
-        const move = top ? normalizeClass(top.className) : null;
-        state.latest = { move, confidence: top ? top.probability : 0 };
-        if (!state.playing && move) renderPrediction(move, top.probability);
-        if (!state.playing && !move) {
-          $("predictionText").textContent = "BACKGROUND";
-          $("playerMoveIcon").textContent = "—";
-          $("confidenceValue").textContent = `${Math.round((top?.probability || 0) * 100)}%`;
-          $("confidenceBar").style.width = "0%";
-        }
+        state.lastVideoTime = video.currentTime;
+        const result = state.recognizer.recognizeForVideo(video, performance.now());
+        drawLandmarks(result);
+        const category = result.gestures?.[0]?.[0];
+        const move = category ? GESTURE_MAP[category.categoryName] : null;
+        const confidence = category?.score || 0;
+        if (move && confidence >= MIN_GESTURE_CONFIDENCE) processDetectedMove(move, confidence);
+        else if (!state.locked) { state.stableMove = null; state.stableCount = 0; }
       } catch (error) { console.warn("Prediction frame skipped:", error); }
     }
-    requestAnimationFrame(predictionLoop);
+    state.animationFrameId = requestAnimationFrame(predictionLoop);
   }
   function renderPrediction(move, confidence) {
     const item = MOVES[move]; if (!item) return;
@@ -165,10 +227,16 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
 
   async function showCountdown() {
     const node = $("countdown");
-    for (const value of ["3", "2", "1", "SHOW YOUR MOVE!"]) {
-      node.textContent = value; node.className = `countdown show${value.length > 2 ? " word" : ""}`;
-      playSound(value.length > 2 ? "go" : "beep"); await sleep(value.length > 2 ? 900 : 760); node.className = "countdown"; await sleep(70);
+    for (const value of ["3", "2", "1"]) {
+      node.textContent = value; node.className = "countdown show";
+      playSound("beep"); await sleep(760); node.className = "countdown"; await sleep(70);
     }
+    node.textContent = "SHOW YOUR MOVE!"; node.className = "countdown show word";
+    $("stageStatus").textContent = "SHOW YOUR MOVE · HAND AI ACTIVE";
+    state.detecting = true;
+    playSound("go"); await sleep(900);
+    state.detecting = false;
+    node.className = "countdown"; await sleep(70);
   }
   function outcome(player, robot) {
     if (player === robot) return "draw";
@@ -184,11 +252,12 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
   async function playRound() {
     if (state.playing) return;
     if (!state.stream) { toast("Enable the camera first"); await startCamera(); return; }
-    if (!state.model) { toast("The AI model is still offline"); loadModel(); return; }
+    if (!state.recognizer) { toast("The MediaPipe hand AI is still offline"); loadModel(); return; }
+    resetStableDetection();
     state.playing = true; $("startButton").disabled = true; $("stageStatus").textContent = "BATTLE IN PROGRESS"; setRobotMode();
     await showCountdown();
     const player = state.latest.move, confidence = state.latest.confidence;
-    if (!player || confidence < .35) {
+    if (!player || confidence < MIN_GESTURE_CONFIDENCE) {
       $("resultFlash").textContent = "HAND NOT CLEAR · TRY AGAIN"; $("resultFlash").classList.add("show");
       toast("Keep your hand inside the frame"); await sleep(2050); $("resultFlash").classList.remove("show"); finishRound(); return;
     }
@@ -211,7 +280,12 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     if (s.streak >= 5 && !state.boss) activateBossMode();
     saveStats(); renderStats(); flash.classList.add("show"); await sleep(2100); flash.classList.remove("show"); finishRound();
   }
-  function finishRound() { state.playing = false; $("startButton").disabled = false; $("stageStatus").textContent = "SYSTEM READY · NEXT ROUND"; if (!state.boss) setRobotMode(); }
+  function finishRound() {
+    state.detecting = false;
+    clearLandmarks();
+    resetStableDetection(false);
+    state.playing = false; $("startButton").disabled = false; $("stageStatus").textContent = "SYSTEM READY · NEXT ROUND"; if (!state.boss) setRobotMode();
+  }
   function makeConfetti() {
     const box = $("confetti"), colors = ["#00e5ff", "#55ffb2", "#ffffff", "#2877ff", "#ffd34d"];
     for (let i=0;i<75;i++) { const bit = document.createElement("i"); bit.style.left = `${Math.random()*100}%`; bit.style.background = randomItem(colors); bit.style.setProperty("--drift", `${Math.random()*220-110}px`); bit.style.animationDelay = `${Math.random()*.45}s`; box.appendChild(bit); setTimeout(() => bit.remove(), 3100); }
@@ -257,8 +331,18 @@ const METADATA_URL = "https://teachablemachine.withgoogle.com/models/JJOC-3YBW/m
     $("darkSetting").addEventListener("change", (e) => $("app").classList.toggle("light-mode", !e.target.checked));
     $("resetScores").addEventListener("click", resetScores);
     document.addEventListener("keydown", (e) => { if (e.code === "Space" && !/INPUT|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); playRound(); } if (e.key === "Escape") openSettings(false); });
-    window.addEventListener("beforeunload", () => { if (state.stream) state.stream.getTracks().forEach((t) => t.stop()); });
+    window.addEventListener("pagehide", cleanup, { once: true });
+    window.addEventListener("beforeunload", cleanup, { once: true });
     navigator.serial?.addEventListener("disconnect", () => { state.writer = null; state.port = null; updateSerialUI(false); toast("Arduino disconnected"); });
+  }
+  function cleanup() {
+    state.detecting = false;
+    if (state.animationFrameId !== null) cancelAnimationFrame(state.animationFrameId);
+    state.animationFrameId = null;
+    if (state.stream) state.stream.getTracks().forEach((track) => track.stop());
+    state.stream = null;
+    if (state.recognizer) state.recognizer.close();
+    state.recognizer = null;
   }
   function init() {
     createParticles(); loadStats(); bind(); say("idle"); listCameras(); loadModel();
