@@ -10,7 +10,7 @@ https://tinybot-ai.naziaparveen.chatgpt.site
 
 ## Features
 
-- Google Teachable Machine image classification
+- Google MediaPipe Gesture Recognizer with 21-point hand tracking
 - Live webcam predictions with confidence tracking
 - Animated TinyBot opponent and randomized dialogue
 - Player/robot scoreboards, win rates and streaks
