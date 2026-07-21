@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#020508">
   <title>TinyBot AI — Can You Beat the Robot?</title>
-  <meta name="description" content="A live Rock Paper Scissors AI arena powered by Google Teachable Machine.">
+  <meta name="description" content="A live Rock Paper Scissors AI arena powered by Google MediaPipe hand gesture recognition.">
   <link rel="icon" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -124,12 +124,10 @@
         <div class="setting-row status-setting"><span><b>Arduino link</b><small id="settingsSerialText">Not connected</small></span><i class="serial-dot"></i></div>
         <div class="setting-row"><span><b>Serial newline</b><small>Append line break after R, P or S</small></span><label class="switch"><input id="newlineSetting" type="checkbox"></i><i></i></label></div>
         <button class="reset-button" id="resetScores">RESET ALL SCORES</button>
-        <p class="settings-note">Teachable Machine model status: <b id="modelStatus">INITIALIZING</b></p>
+        <p class="settings-note">MediaPipe hand AI status: <b id="modelStatus">INITIALIZING</b></p>
       </aside>
 
       <footer class="micro-footer"><span>TINYBOT // EXPERIMENT 01</span><i></i><span>BUILT FOR INSIGHT 2026</span><i></i><span>HUMAN VS MACHINE</span></footer><div class="toast" id="toast" role="status" aria-live="polite"></div></main>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js" defer></script>
-<script src="script.js" defer></script>
+<script src="script.js" type="module"></script>
 </body>
 </html>
