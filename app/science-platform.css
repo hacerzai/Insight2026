@@ -41,3 +41,24 @@
 /* Keep the drawing layer visual-only so camera controls remain clickable. */
 .vision-feed canvas{pointer-events:none}
 .vision-cover{z-index:3}
+
+/* Live camera becomes the room behind each experience. The video stays blurred and
+   dimmed while the landmark canvas and gesture cursor remain easy to follow. */
+.lab-overlay:has(.camera-live){background:linear-gradient(rgba(2,7,17,.28),rgba(2,7,17,.58))}
+.lab-overlay:has(.camera-live)>main{isolation:isolate;position:relative}
+.lab-overlay:has(.camera-live) .experience,.lab-overlay:has(.camera-live) .quiz-live{position:relative;z-index:1}
+.camera-live{height:0;min-height:0;position:relative;z-index:-1}
+.camera-live .vision-feed{position:fixed;inset:76px 0 0;z-index:-1;max-height:none;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;background:#020711;overflow:hidden}
+.camera-live .vision-feed video{filter:blur(12px) brightness(.48) saturate(.82);transform:scaleX(-1) scale(1.08)}
+.camera-live .vision-feed canvas{opacity:.42;filter:drop-shadow(0 0 8px rgba(83,231,255,.5))}
+.camera-live .vision-badge{position:fixed;top:92px;left:18px}
+.camera-live .stop-camera{position:fixed;right:18px;bottom:18px;z-index:12;background:rgba(3,7,17,.82);backdrop-filter:blur(14px)}
+.hand-dock:has(.camera-live){grid-template-columns:1fr;min-height:76px;background:rgba(6,15,28,.64);backdrop-filter:blur(18px)}
+.hand-dock:has(.camera-live)>div:last-child{padding-right:130px}
+.lab-overlay:has(.camera-live) .lab-intro>div,.lab-overlay:has(.camera-live) .control-grid>*,.lab-overlay:has(.camera-live) .formula-ribbon,.lab-overlay:has(.camera-live) .physics-stage,.lab-overlay:has(.camera-live) .energy-stage,.lab-overlay:has(.camera-live) .ray-stage,.lab-overlay:has(.camera-live) .circuit-board,.lab-overlay:has(.camera-live) .atom,.lab-overlay:has(.camera-live) .cell-diagram,.lab-overlay:has(.camera-live) .heart-stage,.lab-overlay:has(.camera-live) .reaction-bench,.lab-overlay:has(.camera-live) .molecule-stage{background-color:rgba(4,12,24,.68);backdrop-filter:blur(18px) saturate(1.15)}
+
+.hand-cursor{position:fixed;left:-18px;top:-18px;z-index:250;width:36px;height:36px;border:2px solid var(--lab-cyan);border-radius:50%;pointer-events:none;opacity:0;transition:opacity .16s,width .1s,height .1s,margin .1s,border-color .1s;box-shadow:0 0 0 7px rgba(83,231,255,.12),0 0 24px rgba(83,231,255,.6)}
+.hand-cursor.visible{opacity:1}.hand-cursor.pinching{width:25px;height:25px;margin:5px;border-color:var(--lab-green);box-shadow:0 0 0 9px rgba(115,255,197,.14),0 0 28px rgba(115,255,197,.8)}
+.hand-cursor span{position:absolute;left:50%;top:43px;transform:translateX(-50%);padding:4px 7px;border-radius:5px;background:rgba(2,7,17,.82);color:var(--lab-cyan);font:700 8px var(--mono);letter-spacing:.1em;white-space:nowrap;opacity:.72}
+.hand-cursor.pinching span{color:var(--lab-green);opacity:1}
+@media(max-width:760px){.camera-live .vision-feed{inset:112px 0 0}.camera-live .vision-badge{top:124px}.hand-dock:has(.camera-live)>div:last-child{padding-right:0}}
