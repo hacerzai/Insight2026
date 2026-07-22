@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   FaceLandmarker,
   GestureRecognizer,
@@ -33,10 +33,7 @@ interface VisionFrame {
   fps: number;
 }
 
-const HAND_MODEL = "/models/hand_landmarker.task";
-const FACE_MODEL = "/models/face_landmarker.task";
-const POSE_MODEL = "/models/pose_landmarker_lite.task";
-const WASM_PATH = "/mediapipe/wasm";
+const publicAsset = (path:string) => typeof window !== "undefined" && window.location.pathname.includes("/go-live/") ? `../public/${path}` : `/${path}`;
 
 const MODULES: ModuleInfo[] = [
   {id:"finger-counter",priority:1,group:"Computer Vision",title:"Finger Counter",classTopic:"Computer Vision Demo",description:"Count one or two hands, add numbers and explore binary fingers.",technology:"MediaPipe Hand Landmarker",type:"AI-powered",icon:"✋"},
@@ -107,20 +104,22 @@ function VisionStage({kind,onFrame,compact=false}:{kind:VisionKind;onFrame?:(fra
   useEffect(()=>stop,[stop]);
 
   const start = async () => {
+    if(status==="loading"||status==="ready")return;
+    if(!window.isSecureContext){setError("Camera access needs localhost or HTTPS. Open this page with Go Live, not by double-clicking the HTML file.");setStatus("error");return;}
     if(!navigator.mediaDevices?.getUserMedia){setError("Camera API is unavailable. Use current Chrome or Edge.");setStatus("error");return;}
     stop(); setStatus("loading"); setError("");
     try{
-      const vision = await import("@mediapipe/tasks-vision");
-      const files = await vision.FilesetResolver.forVisionTasks(WASM_PATH);
-      const create = async (delegate:"GPU"|"CPU") => {
-        if(kind==="hand") return vision.HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:HAND_MODEL,delegate},runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:.6,minHandPresenceConfidence:.6,minTrackingConfidence:.6});
-        if(kind==="face") return vision.FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:FACE_MODEL,delegate},runningMode:"VIDEO",numFaces:1,outputFaceBlendshapes:true,minFaceDetectionConfidence:.6,minFacePresenceConfidence:.6,minTrackingConfidence:.6});
-        return vision.PoseLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:POSE_MODEL,delegate},runningMode:"VIDEO",numPoses:1,minPoseDetectionConfidence:.6,minPosePresenceConfidence:.6,minTrackingConfidence:.6});
-      };
-      try{taskRef.current=await create("GPU");}catch{taskRef.current=await create("CPU");}
       const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640,max:640},height:{ideal:480,max:480},facingMode:"user"},audio:false});
       streamRef.current=stream;
       const video=videoRef.current!; video.srcObject=stream; await video.play();
+      const vision = await import("@mediapipe/tasks-vision");
+      const files = await vision.FilesetResolver.forVisionTasks(publicAsset("mediapipe/wasm"));
+      const create = async (delegate:"GPU"|"CPU") => {
+        if(kind==="hand") return vision.HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:publicAsset("models/hand_landmarker.task"),delegate},runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:.6,minHandPresenceConfidence:.6,minTrackingConfidence:.6});
+        if(kind==="face") return vision.FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:publicAsset("models/face_landmarker.task"),delegate},runningMode:"VIDEO",numFaces:1,outputFaceBlendshapes:true,minFaceDetectionConfidence:.6,minFacePresenceConfidence:.6,minTrackingConfidence:.6});
+        return vision.PoseLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:publicAsset("models/pose_landmarker_lite.task"),delegate},runningMode:"VIDEO",numPoses:1,minPoseDetectionConfidence:.6,minPosePresenceConfidence:.6,minTrackingConfidence:.6});
+      };
+      try{taskRef.current=await create("GPU");}catch{taskRef.current=await create("CPU");}
       setStatus("ready");
       const loop=()=>{
         if(video.readyState>=2 && video.currentTime!==lastTimeRef.current && taskRef.current){
@@ -144,14 +143,15 @@ function VisionStage({kind,onFrame,compact=false}:{kind:VisionKind;onFrame?:(fra
     }catch(cause){
       const message=cause instanceof Error?cause.message:"Camera or AI model could not start.";
       stop();
-      setError(message.includes("Permission")?"Camera permission was denied. Allow it in the address bar and retry.":message);
+      const denied=cause instanceof DOMException&&cause.name==="NotAllowedError";
+      setError(denied||message.includes("Permission")?"Camera permission was denied. Click the camera icon in the address bar, choose Allow, then retry.":message);
       setStatus("error");
     }
   };
 
   return <div className={`vision-stage ${compact?"compact":""}`}>
     <div className="vision-feed"><video ref={videoRef} muted playsInline/><canvas ref={canvasRef}/>
-      {status!=="ready"&&<div className="vision-cover"><span>◉</span><b>{status==="loading"?"LOADING LOCAL VISION MODEL":"CAMERA READY"}</b><small>{status==="error"?error:"Frames stay in this browser."}</small><button onClick={start}>{status==="error"?"RETRY":"START CAMERA"}</button></div>}
+      {status!=="ready"&&<div className="vision-cover"><span>◉</span><b>{status==="loading"?"STARTING CAMERA + LOCAL AI":"CAMERA READY"}</b><small>{status==="error"?error:status==="loading"?"Please wait—the first model load can take a few seconds.":"Frames stay in this browser."}</small><button onClick={start} disabled={status==="loading"}>{status==="error"?"RETRY":status==="loading"?"STARTING…":"START CAMERA"}</button></div>}
       <div className="vision-badge"><i className={status}/>{status==="ready"?`${kind.toUpperCase()} AI LIVE`:status.toUpperCase()}</div>
     </div>
     {status==="ready"&&<button className="stop-camera" onClick={stop}>Stop camera</button>}
@@ -191,11 +191,12 @@ function SciencePlatform(){
   useEffect(()=>{if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>undefined)},[]);
 
   const toggleExhibition=async()=>{const next=!exhibition;setExhibition(next);if(next&&!document.fullscreenElement)await document.documentElement.requestFullscreen?.();if(!next&&document.fullscreenElement)await document.exitFullscreen?.();};
+  const openRobot=()=>document.getElementById("beat-robot")?.scrollIntoView({behavior:"smooth",block:"start"});
   return <section className={`science-platform ${exhibition?"exhibition":""}`} id="science-lab">
-    <nav className="lab-nav"><a href="#app" className="lab-brand"><span>V</span><b>VISION AI</b> SCIENCE LAB</a><div className="lab-links"><a href="#physics">PHYSICS</a><a href="#biology">BIOLOGY</a><a href="#chemistry">CHEMISTRY</a><a href="#computer-vision">AI VISION</a></div><div className="lab-tools"><button onClick={()=>setSound(!sound)} aria-label="Toggle sound">{sound?"🔊":"🔇"}</button><button onClick={toggleExhibition}>⛶ EXHIBITION</button><button onClick={()=>setAdvanced(!advanced)}>⚙</button></div></nav>
+    <nav className="lab-nav"><a href="#science-lab" className="lab-brand"><span>V</span><b>VISION AI</b> SCIENCE LAB</a><div className="lab-links"><button onClick={openRobot}>BEAT THE ROBOT</button><a href="#physics">PHYSICS</a><a href="#biology">BIOLOGY</a><a href="#chemistry">CHEMISTRY</a><a href="#computer-vision">AI VISION</a></div><div className="lab-tools"><button onClick={()=>setSound(!sound)} aria-label="Toggle sound">{sound?"🔊":"🔇"}</button><button onClick={toggleExhibition}>⛶ EXHIBITION</button><button onClick={()=>setAdvanced(!advanced)}>⚙</button></div></nav>
     {advanced&&<div className="advanced-panel"><b>ADVANCED STATUS</b><span>Camera: starts only inside an active module</span><span>Models: on demand · GPU-first · CPU fallback</span><span>Processing: 640 × 480 · local browser inference</span><span>FPS appears on active vision stages</span></div>}
-    <header className="lab-hero"><div><p>INSIGHT 2026 · AI CATEGORY</p><h2>Learn science by<br/><em>moving through it.</em></h2><span>Computer vision turns your hands, face and pose into controls for accurate Class 9–10 science experiences.</span><div className="hero-actions"><a href="#priority-one">EXPLORE EXPERIENCES</a><button onClick={()=>document.getElementById("app")?.scrollIntoView()}>BEAT THE ROBOT ↑</button></div></div><div className="hero-orbit" aria-hidden="true"><i/><i/><i/><b>AI</b><span>LANDMARKS</span><span>SIMULATION</span><span>ROBOTICS</span></div></header>
-    <section className="featured-strip" id="priority-one"><div><span>01</span><b>Beat the Robot</b><small>MediaPipe hand AI → Arduino servos</small><button onClick={()=>document.getElementById("app")?.scrollIntoView({behavior:"smooth"})}>PLAY MAIN ATTRACTION</button></div>{MODULES.filter(m=>m.priority===1).map(m=><ModuleCard key={m.id} module={m} onOpen={setActive}/>) }<QuizCard onOpen={()=>setActive("quiz")}/></section>
+    <header className="lab-hero"><div><p>INSIGHT 2026 · AI CATEGORY</p><h2>Learn science by<br/><em>moving through it.</em></h2><span>Computer vision turns your hands, face and pose into controls for accurate Class 9–10 science experiences.</span><div className="hero-actions"><a href="#priority-one">EXPLORE EXPERIENCES</a><button onClick={openRobot}>BEAT THE ROBOT ↓</button></div></div><div className="hero-orbit" aria-hidden="true"><i/><i/><i/><b>AI</b><span>LANDMARKS</span><span>SIMULATION</span><span>ROBOTICS</span></div></header>
+    <section className="featured-strip" id="priority-one"><div className="robot-module-card"><span>01</span><b>Beat the Robot</b><small>MediaPipe hand AI → Arduino servos</small><p>Play Rock–Paper–Scissors against TinyBot and send its move to the physical two-servo hand.</p><button onClick={openRobot}>PLAY MAIN ATTRACTION →</button></div>{MODULES.filter(m=>m.priority===1).map(m=><ModuleCard key={m.id} module={m} onOpen={setActive}/>) }<QuizCard onOpen={()=>setActive("quiz")}/></section>
     {groups.map(group=><section className="module-section" id={group.toLowerCase().replace(" ","-")} key={group}><div className="section-heading"><p>{group.toUpperCase()} AI LAB</p><h3>{group}</h3><span>{group==="Computer Vision"?"See what landmark models estimate—and what they cannot know.":"Explore NCERT science with live controls, exact rules and honest AI labels."}</span></div><div className="module-grid">{MODULES.filter(m=>m.group===group&&m.priority!==1).map(m=><ModuleCard key={m.id} module={m} onOpen={setActive}/>)}</div></section>)}
     <section className="system-section"><div><p>HOW THE SYSTEM WORKS</p><h3>From camera frame to physical robot.</h3></div><div className="pipeline">{["CAMERA","MEDIAPIPE","LANDMARKS","RULES + SIMULATION","ARDUINO","2 SERVOS"].map((x,i)=><span key={x}><b>0{i+1}</b>{x}</span>)}</div><button onClick={()=>setActive("system")}>OPEN SYSTEM EXPLAINER</button></section>
     <footer><b>VISION AI SCIENCE LAB</b><span>Learn Science Through Artificial Intelligence</span><small>Camera frames are processed locally. No identity or emotion recognition.</small></footer>
@@ -210,10 +211,10 @@ function ModuleCard({module,onOpen}:{module:ModuleInfo;onOpen:(id:string)=>void}
 function QuizCard({onOpen}:{onOpen:()=>void}){return <article className="module-card quiz-card"><div className="card-top"><span>?</span><i>GESTURE QUIZ</i></div><small>CLASS 9–10 · ALL SUBJECTS</small><h4>AI Science Quiz</h4><p>64 original questions with filters, explanations, score, streak and timer.</p><div><b>Hand gestures + quiz engine</b><button onClick={onOpen}>START QUIZ →</button></div></article>}
 
 function LabShell({id,onClose}:{id:string;onClose:()=>void}){
-  const module=MODULES.find(m=>m.id===id);
-  const title=id==="quiz"?"AI Science Quiz":id==="system"?"How the System Works":module?.title??id;
+  const selectedModule=MODULES.find(m=>m.id===id);
+  const title=id==="quiz"?"AI Science Quiz":id==="system"?"How the System Works":selectedModule?.title??id;
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key)},[onClose]);
-  return <div className="lab-overlay" role="dialog" aria-modal="true"><header><button onClick={onClose}>← HOME</button><div><small>{module?.classTopic??"VISION AI SCIENCE LAB"}</small><h2>{title}</h2></div><button onClick={()=>window.location.reload()}>↻ RESTART</button><button onClick={onClose}>EXIT ×</button></header><main><ModuleExperience id={id}/></main></div>;
+  return <div className="lab-overlay" role="dialog" aria-modal="true"><header><button onClick={onClose}>← HOME</button><div><small>{selectedModule?.classTopic??"VISION AI SCIENCE LAB"}</small><h2>{title}</h2></div><button onClick={()=>window.location.reload()}>↻ RESTART</button><button onClick={onClose}>EXIT ×</button></header><main><ModuleExperience id={id}/></main></div>;
 }
 
 function ModuleExperience({id}:{id:string}){

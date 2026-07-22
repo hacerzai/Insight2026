@@ -1,9 +1,11 @@
 /* TinyBot AI — production interaction layer (vanilla JavaScript).
    MediaPipe is loaded from the browser ESM build of @mediapipe/tasks-vision so
    the exhibition site remains compatible with VS Code Go Live. */
-const MEDIAPIPE_PACKAGE_URL = "/mediapipe/vision_bundle.mjs";
-const WASM_PATH = "/mediapipe/wasm";
-const MODEL_ASSET_PATH = "/models/gesture_recognizer.task";
+const IS_GO_LIVE = window.location.pathname.includes("/go-live/");
+const PUBLIC_BASE = IS_GO_LIVE ? "../public" : "";
+const MEDIAPIPE_PACKAGE_URL = `${PUBLIC_BASE}/mediapipe/vision_bundle.mjs`;
+const WASM_PATH = `${PUBLIC_BASE}/mediapipe/wasm`;
+const MODEL_ASSET_PATH = `${PUBLIC_BASE}/models/gesture_recognizer.task`;
 const MIN_GESTURE_CONFIDENCE = 0.70;
 const STABLE_DETECTIONS_REQUIRED = 4;
 
@@ -49,6 +51,7 @@ const STABLE_DETECTIONS_REQUIRED = 4;
     stats: { player: 0, robot: 0, draws: 0, streak: 0, games: 0 },
     boss: false,
     audio: null,
+    cameraStarting: false,
   };
 
   function randomItem(items) { return items[Math.floor(Math.random() * items.length)]; }
@@ -128,7 +131,13 @@ const STABLE_DETECTIONS_REQUIRED = 4;
     select.innerHTML = '<option value="">Default camera</option>' + devices.map((d, i) => `<option value="${d.deviceId}">${d.label || `Camera ${i + 1}`}</option>`).join("");
   }
   async function startCamera(deviceId = "") {
+    if (state.cameraStarting) return;
+    const button = $("cameraButton");
     try {
+      state.cameraStarting = true;
+      button.disabled = true;
+      button.textContent = "◌ STARTING CAMERA…";
+      if (!window.isSecureContext) throw new Error("Camera requires localhost or HTTPS");
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera API unavailable");
       if (state.stream) state.stream.getTracks().forEach((track) => track.stop());
       state.stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, facingMode: "user" }, audio: false });
@@ -143,7 +152,11 @@ const STABLE_DETECTIONS_REQUIRED = 4;
       playSound("click"); toast("Camera connected");
     } catch (error) {
       console.error("Camera error:", error); toast(error.name === "NotAllowedError" ? "Camera permission was denied" : "Could not start the camera");
-      $("stageStatus").textContent = "CAMERA ACCESS REQUIRED";
+      $("stageStatus").textContent = !window.isSecureContext ? "USE GO LIVE OR HTTPS FOR CAMERA" : "CAMERA ACCESS REQUIRED · CHECK ADDRESS BAR";
+      button.textContent = "◉ RETRY CAMERA";
+    } finally {
+      state.cameraStarting = false;
+      button.disabled = false;
     }
   }
   function resetStableDetection(clearDisplay = true) {

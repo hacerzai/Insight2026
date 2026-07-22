@@ -68,7 +68,17 @@ npm install
 npm run dev
 ```
 
-Open the local address printed by the terminal. Do not use VS Code Go Live for this Next.js/Vinext build.
+Open the local address printed by the terminal. This is the primary development workflow.
+
+### VS Code Go Live version
+
+The repository also includes a complete browser bundle for Live Server:
+
+```bash
+npm run build:go-live
+```
+
+Then right-click `go-live/index.html` in VS Code and select **Open with Live Server**. Use the localhost address opened by the extension and allow camera access. Do not open the HTML file directly with a `file://` address.
 
 Production verification:
 

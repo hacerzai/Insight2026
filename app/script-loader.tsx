@@ -2,12 +2,9 @@
 
 import { useEffect } from "react";
 
-const sources = [
-  "/tinybot.js",
-];
-
 export default function ScriptLoader() {
   useEffect(() => {
+    const sources = [window.location.pathname.includes("/go-live/") ? "../public/tinybot.js" : "/tinybot.js"];
     let cancelled = false;
     const loadInOrder = async () => {
       for (const src of sources) {

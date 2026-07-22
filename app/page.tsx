@@ -6,8 +6,12 @@ export default function Home() {
     <main id="app" className="app" data-quality="high">
       <div className="ambient" aria-hidden="true"><div className="grid-floor"/><div id="particles" className="particles"/></div>
 
+      <SciencePlatform />
+
+      <section id="beat-robot" className="robot-experience" aria-label="Beat the Robot experience">
+
       <header className="topbar">
-        <a className="brand" href="#app" aria-label="TinyBot AI home">
+        <a className="brand" href="#science-lab" aria-label="Return to Vision AI Science Lab">
           <span className="brand-mark"><i/><i/></span>
           <span><b>TINYBOT</b><em>AI</em></span>
         </a>
@@ -120,7 +124,7 @@ export default function Home() {
       </aside>
 
       <div className="toast" id="toast" role="status" aria-live="polite"/>
-      <SciencePlatform />
+      </section>
       <ScriptLoader />
     </main>
   );
