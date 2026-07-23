@@ -124,6 +124,7 @@ export function CameraProvider({ children }: { children: ReactNode }) {
   const generationRef = useRef(0);
   const lastVideoTimeRef = useRef(-1);
   const sampleTimesRef = useRef<number[]>([]);
+  const lastDiagnosticsUpdateRef = useRef(0);
   const pinchRef = useRef(false);
   const smoothedRef = useRef({ x: 0.5, y: 0.5, ready: false });
   const [status, setStatus] = useState<CameraStatus>("idle");
@@ -318,17 +319,20 @@ export function CameraProvider({ children }: { children: ReactNode }) {
             inferenceMs: finished - started,
           };
           session.onFrame?.(frame);
-          setDiagnostics((current) => ({
-            ...current,
-            fps: frame.fps,
-            inferenceMs: frame.inferenceMs ?? 0,
-            handDetected: session.kind === "hand" && landmarks.length > 0,
-            poseDetected: session.kind === "pose" && landmarks.length > 0,
-            faceDetected: session.kind === "face" && landmarks.length > 0,
-            pinch: interaction?.active ?? false,
-            pointerX: interaction?.x ?? current.pointerX,
-            pointerY: interaction?.y ?? current.pointerY,
-          }));
+          if (finished - lastDiagnosticsUpdateRef.current >= 160) {
+            lastDiagnosticsUpdateRef.current = finished;
+            setDiagnostics((current) => ({
+              ...current,
+              fps: frame.fps,
+              inferenceMs: frame.inferenceMs ?? 0,
+              handDetected: session.kind === "hand" && landmarks.length > 0,
+              poseDetected: session.kind === "pose" && landmarks.length > 0,
+              faceDetected: session.kind === "face" && landmarks.length > 0,
+              pinch: interaction?.active ?? false,
+              pointerX: interaction?.x ?? current.pointerX,
+              pointerY: interaction?.y ?? current.pointerY,
+            }));
+          }
         }
         rafRef.current = requestAnimationFrame(loop);
       };
