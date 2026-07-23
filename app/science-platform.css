@@ -42,83 +42,10 @@
 .vision-feed canvas{pointer-events:none}
 .vision-cover{z-index:3}
 
-/* Live camera becomes the room behind each experience. The video stays blurred and
-   dimmed while the landmark canvas and gesture cursor remain easy to follow. */
-.lab-overlay:has(.camera-live){background:linear-gradient(rgba(2,7,17,.28),rgba(2,7,17,.58))}
-.lab-overlay:has(.camera-live)>main{isolation:isolate;position:relative}
-.lab-overlay:has(.camera-live) .experience,.lab-overlay:has(.camera-live) .quiz-live{position:relative;z-index:1}
-.camera-live{height:0;min-height:0;position:relative;z-index:-1}
-.camera-live .vision-feed{position:fixed;inset:76px 0 0;z-index:-1;max-height:none;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;background:#020711;overflow:hidden}
-.camera-live .vision-feed video{filter:blur(12px) brightness(.48) saturate(.82);transform:scaleX(-1) scale(1.08)}
-.camera-live .vision-feed canvas{opacity:.42;filter:drop-shadow(0 0 8px rgba(83,231,255,.5))}
-.camera-live .vision-badge{position:fixed;top:92px;left:18px}
-.camera-live .stop-camera{position:fixed;right:18px;bottom:18px;z-index:12;background:rgba(3,7,17,.82);backdrop-filter:blur(14px)}
-.hand-dock:has(.camera-live){grid-template-columns:1fr;min-height:76px;background:rgba(6,15,28,.64);backdrop-filter:blur(18px)}
-.hand-dock:has(.camera-live)>div:last-child{padding-right:130px}
-.lab-overlay:has(.camera-live) .lab-intro>div,.lab-overlay:has(.camera-live) .control-grid>*,.lab-overlay:has(.camera-live) .formula-ribbon,.lab-overlay:has(.camera-live) .physics-stage,.lab-overlay:has(.camera-live) .energy-stage,.lab-overlay:has(.camera-live) .ray-stage,.lab-overlay:has(.camera-live) .circuit-board,.lab-overlay:has(.camera-live) .atom,.lab-overlay:has(.camera-live) .cell-diagram,.lab-overlay:has(.camera-live) .heart-stage,.lab-overlay:has(.camera-live) .reaction-bench,.lab-overlay:has(.camera-live) .molecule-stage{background-color:rgba(4,12,24,.68);backdrop-filter:blur(18px) saturate(1.15)}
-
 .hand-cursor{position:fixed;left:-18px;top:-18px;z-index:250;width:36px;height:36px;border:2px solid var(--lab-cyan);border-radius:50%;pointer-events:none;opacity:0;transition:opacity .16s,width .1s,height .1s,margin .1s,border-color .1s;box-shadow:0 0 0 7px rgba(83,231,255,.12),0 0 24px rgba(83,231,255,.6)}
 .hand-cursor.visible{opacity:1}.hand-cursor.pinching{width:25px;height:25px;margin:5px;border-color:var(--lab-green);box-shadow:0 0 0 9px rgba(115,255,197,.14),0 0 28px rgba(115,255,197,.8)}
 .hand-cursor span{position:absolute;left:50%;top:43px;transform:translateX(-50%);padding:4px 7px;border-radius:5px;background:rgba(2,7,17,.82);color:var(--lab-cyan);font:700 8px var(--mono);letter-spacing:.1em;white-space:nowrap;opacity:.72}
 .hand-cursor.pinching span{color:var(--lab-green);opacity:1}
-@media(max-width:760px){.camera-live .vision-feed{inset:112px 0 0}.camera-live .vision-badge{top:124px}.hand-dock:has(.camera-live)>div:last-child{padding-right:0}}
-
-/* Reliable AR stage: live video, subtle tint, aligned drawing layer, then UI. */
-.lab-overlay:has(.camera-live){background:rgba(2,7,17,.12)}
-.lab-overlay:has(.camera-live)>main{position:relative;isolation:isolate}
-.lab-overlay:has(.camera-live) .experience,
-.lab-overlay:has(.camera-live) .quiz-live{position:relative;z-index:2}
-.camera-live{height:0;min-height:0;position:relative;z-index:1}
-.camera-live .vision-feed{
-  position:fixed;
-  inset:76px 0 0;
-  z-index:0;
-  max-height:none;
-  aspect-ratio:auto;
-  border:0;
-  border-radius:0;
-  background:#020711;
-  overflow:hidden;
-}
-.camera-live .vision-feed video{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  filter:none;
-  transform:scaleX(-1);
-}
-.camera-live .camera-tint{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  background:rgba(0,0,0,.14);
-  pointer-events:none;
-}
-.camera-live .vision-feed canvas{
-  position:absolute;
-  inset:0;
-  z-index:2;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  opacity:1;
-  filter:drop-shadow(0 0 8px rgba(83,231,255,.6));
-  pointer-events:none;
-}
-.camera-live .vision-badge{position:fixed;top:92px;left:18px;z-index:4}
-.camera-live .stop-camera{
-  position:fixed;
-  right:18px;
-  bottom:18px;
-  z-index:20;
-  min-width:190px;
-  min-height:56px;
-  font-size:12px;
-  background:rgba(3,7,17,.88);
-  backdrop-filter:blur(10px);
-}
 .vision-cover{z-index:5;padding:28px}
 .vision-cover>button{
   min-width:min(420px,90%);
@@ -217,8 +144,6 @@
 .pose-challenges span.complete{border-color:var(--lab-green);color:var(--lab-green);box-shadow:0 0 18px rgba(115,255,197,.12)}
 .block.grabbed{border-color:var(--lab-green);box-shadow:0 0 0 5px rgba(115,255,197,.12),0 0 28px rgba(115,255,197,.45)}
 @media(max-width:760px){
-  .camera-live .vision-feed{inset:112px 0 0}
-  .camera-live .vision-badge{top:124px}
   .hand-dock{grid-template-columns:1fr}
   .hand-dock .vision-feed{min-height:220px}
   .pinch-hint{bottom:84px;white-space:nowrap}
@@ -226,7 +151,7 @@
 }
 
 
-/* Contained, transparent AR stage — July 2026 */
+/* Canonical contained AR window. Camera layers must never escape this box. */
 .lab-overlay:has(.camera-live){
   background:radial-gradient(circle at 70% 0,rgba(77,62,183,.12),transparent 35%),#030711;
 }
@@ -239,7 +164,11 @@
   position:relative;
   z-index:auto;
 }
+.vision-stage:not(.compact),
 .camera-live{
+  width:min(720px,100%);
+  max-width:720px;
+  margin-inline:auto;
   height:auto;
   min-height:0;
   position:relative;
@@ -250,7 +179,8 @@
   inset:auto;
   z-index:auto;
   width:100%;
-  max-height:630px;
+  max-width:720px;
+  max-height:none;
   aspect-ratio:4/3;
   border:1px solid rgba(83,231,255,.34);
   border-radius:17px;
@@ -312,6 +242,9 @@
 .experience.two-column{
   align-items:start;
 }
+.experience.two-column>div:first-child{
+  min-width:0;
+}
 .lab-intro>div{
   background:transparent;
   backdrop-filter:none;
@@ -322,6 +255,8 @@
   backdrop-filter:none;
 }
 @media(max-width:760px){
+  .vision-stage:not(.compact),
+  .camera-live{width:100%;max-width:100%}
   .camera-live .vision-feed{border-radius:11px}
   .camera-live .stop-camera{min-width:150px;min-height:50px}
   .camera-live .pinch-hint{bottom:72px;white-space:nowrap}
