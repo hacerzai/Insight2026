@@ -546,7 +546,9 @@ function drawLandmarks(
   context.lineWidth = kind === "pose" ? 5 : 3;
   context.strokeStyle = "#38e8ff";
   context.fillStyle = "#89ffca";
-  sets.forEach((points) => {\n    if (kind === "pose") drawPoseAnatomy(context, points, width, height);\n    connections.forEach(([from, to]) => {
+  sets.forEach((points) => {
+    if (kind === "pose") drawPoseAnatomy(context, points, width, height);
+    connections.forEach(([from, to]) => {
       const a = points[from];
       const b = points[to];
       if (!a || !b || (kind === "pose" && ((a.visibility ?? 1) < 0.45 || (b.visibility ?? 1) < 0.45))) return;
