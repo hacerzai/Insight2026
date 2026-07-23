@@ -42,23 +42,464 @@
 .vision-feed canvas{pointer-events:none}
 .vision-cover{z-index:3}
 
-/* Live camera becomes the room behind each experience. The video stays blurred and
-   dimmed while the landmark canvas and gesture cursor remain easy to follow. */
-.lab-overlay:has(.camera-live){background:linear-gradient(rgba(2,7,17,.28),rgba(2,7,17,.58))}
-.lab-overlay:has(.camera-live)>main{isolation:isolate;position:relative}
-.lab-overlay:has(.camera-live) .experience,.lab-overlay:has(.camera-live) .quiz-live{position:relative;z-index:1}
-.camera-live{height:0;min-height:0;position:relative;z-index:-1}
-.camera-live .vision-feed{position:fixed;inset:76px 0 0;z-index:-1;max-height:none;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;background:#020711;overflow:hidden}
-.camera-live .vision-feed video{filter:blur(12px) brightness(.48) saturate(.82);transform:scaleX(-1) scale(1.08)}
-.camera-live .vision-feed canvas{opacity:.42;filter:drop-shadow(0 0 8px rgba(83,231,255,.5))}
-.camera-live .vision-badge{position:fixed;top:92px;left:18px}
-.camera-live .stop-camera{position:fixed;right:18px;bottom:18px;z-index:12;background:rgba(3,7,17,.82);backdrop-filter:blur(14px)}
-.hand-dock:has(.camera-live){grid-template-columns:1fr;min-height:76px;background:rgba(6,15,28,.64);backdrop-filter:blur(18px)}
-.hand-dock:has(.camera-live)>div:last-child{padding-right:130px}
-.lab-overlay:has(.camera-live) .lab-intro>div,.lab-overlay:has(.camera-live) .control-grid>*,.lab-overlay:has(.camera-live) .formula-ribbon,.lab-overlay:has(.camera-live) .physics-stage,.lab-overlay:has(.camera-live) .energy-stage,.lab-overlay:has(.camera-live) .ray-stage,.lab-overlay:has(.camera-live) .circuit-board,.lab-overlay:has(.camera-live) .atom,.lab-overlay:has(.camera-live) .cell-diagram,.lab-overlay:has(.camera-live) .heart-stage,.lab-overlay:has(.camera-live) .reaction-bench,.lab-overlay:has(.camera-live) .molecule-stage{background-color:rgba(4,12,24,.68);backdrop-filter:blur(18px) saturate(1.15)}
-
 .hand-cursor{position:fixed;left:-18px;top:-18px;z-index:250;width:36px;height:36px;border:2px solid var(--lab-cyan);border-radius:50%;pointer-events:none;opacity:0;transition:opacity .16s,width .1s,height .1s,margin .1s,border-color .1s;box-shadow:0 0 0 7px rgba(83,231,255,.12),0 0 24px rgba(83,231,255,.6)}
 .hand-cursor.visible{opacity:1}.hand-cursor.pinching{width:25px;height:25px;margin:5px;border-color:var(--lab-green);box-shadow:0 0 0 9px rgba(115,255,197,.14),0 0 28px rgba(115,255,197,.8)}
 .hand-cursor span{position:absolute;left:50%;top:43px;transform:translateX(-50%);padding:4px 7px;border-radius:5px;background:rgba(2,7,17,.82);color:var(--lab-cyan);font:700 8px var(--mono);letter-spacing:.1em;white-space:nowrap;opacity:.72}
 .hand-cursor.pinching span{color:var(--lab-green);opacity:1}
-@media(max-width:760px){.camera-live .vision-feed{inset:112px 0 0}.camera-live .vision-badge{top:124px}.hand-dock:has(.camera-live)>div:last-child{padding-right:0}}
+.vision-cover{z-index:5;padding:28px}
+.vision-cover>button{
+  min-width:min(420px,90%);
+  min-height:58px;
+  padding:0 24px;
+  font-size:13px;
+  letter-spacing:.11em;
+}
+.vision-cover>small{max-width:680px;font-size:14px;line-height:1.55}
+.camera-loading{
+  position:absolute;
+  inset:0;
+  z-index:6;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  text-align:center;
+  background:rgba(2,7,17,.76);
+  backdrop-filter:blur(5px);
+}
+.camera-loading i{
+  width:36px;
+  height:36px;
+  border:3px solid rgba(83,231,255,.18);
+  border-top-color:var(--lab-cyan);
+  border-radius:50%;
+  animation:lab-spin 1s linear infinite;
+}
+.camera-loading b{font:700 13px var(--mono);color:var(--lab-cyan);letter-spacing:.1em}
+.camera-loading span{font-size:13px;color:#b5c9d4}
+.pinch-hint{
+  position:fixed;
+  left:50%;
+  bottom:22px;
+  z-index:20;
+  transform:translateX(-50%);
+  margin:0;
+  padding:10px 16px;
+  border:1px solid rgba(83,231,255,.35);
+  border-radius:999px;
+  background:rgba(3,7,17,.78);
+  color:#dffaff;
+  font:700 10px var(--mono);
+  letter-spacing:.1em;
+  pointer-events:none;
+}
+.pinch-cursor{
+  position:absolute;
+  z-index:4;
+  width:32px;
+  height:32px;
+  translate:-50% -50%;
+  border:3px solid var(--lab-cyan);
+  border-radius:50%;
+  box-shadow:0 0 0 8px rgba(83,231,255,.12),0 0 22px rgba(83,231,255,.8);
+  pointer-events:none;
+}
+.pinch-cursor.pinching{
+  width:24px;
+  height:24px;
+  border-color:var(--lab-green);
+  box-shadow:0 0 0 10px rgba(115,255,197,.15),0 0 25px rgba(115,255,197,.9);
+}
+.hand-dock{grid-template-columns:minmax(320px,42%) 1fr;padding:14px}
+.hand-dock .vision-feed{height:auto;min-height:240px;aspect-ratio:4/3}
+.hand-dock .vision-cover>span{display:block}
+.hand-dock .vision-cover>b{font-size:13px}
+.hand-dock .vision-cover>small{display:block;font-size:12px}
+.hand-dock .vision-cover>button{display:block;min-width:min(340px,92%);min-height:56px;font-size:11px}
+.hand-dock>div:last-child small{font-size:10px}
+.hand-dock>div:last-child b{font-size:15px}
+.hand-dock>div:last-child span{font-size:12px}
+.camera-diagnostics{
+  position:fixed;
+  left:14px;
+  bottom:14px;
+  z-index:400;
+  width:290px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 12px;
+  padding:14px;
+  border:1px solid rgba(83,231,255,.35);
+  border-radius:10px;
+  background:rgba(2,7,17,.94);
+  color:#9fb6c4;
+  font:600 10px var(--mono);
+}
+.camera-diagnostics>b{grid-column:1/-1;color:var(--lab-cyan);margin-bottom:4px}
+.camera-diagnostics span{display:contents}
+.camera-diagnostics strong{color:#effcff;overflow-wrap:anywhere}
+.pose-challenges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.pose-challenges span{padding:13px;border:1px solid rgba(124,209,255,.2);border-radius:9px;background:rgba(4,12,24,.72);color:#91a8b6;text-align:center;font:700 10px var(--mono)}
+.pose-challenges span.complete{border-color:var(--lab-green);color:var(--lab-green);box-shadow:0 0 18px rgba(115,255,197,.12)}
+.block.grabbed{border-color:var(--lab-green);box-shadow:0 0 0 5px rgba(115,255,197,.12),0 0 28px rgba(115,255,197,.45)}
+@media(max-width:760px){
+  .hand-dock{grid-template-columns:1fr}
+  .hand-dock .vision-feed{min-height:220px}
+  .pinch-hint{bottom:84px;white-space:nowrap}
+  .pose-challenges{grid-template-columns:1fr}
+}
+
+
+/* Canonical contained AR window. Camera layers must never escape this box. */
+.lab-overlay:has(.camera-live){
+  background:radial-gradient(circle at 70% 0,rgba(77,62,183,.12),transparent 35%),#030711;
+}
+.lab-overlay:has(.camera-live)>main{
+  isolation:auto;
+  position:relative;
+}
+.lab-overlay:has(.camera-live) .experience,
+.lab-overlay:has(.camera-live) .quiz-live{
+  position:relative;
+  z-index:auto;
+}
+.vision-stage:not(.compact),
+.camera-live{
+  width:min(720px,100%);
+  max-width:720px;
+  margin-inline:auto;
+  height:auto;
+  min-height:0;
+  position:relative;
+  z-index:auto;
+}
+.camera-live .vision-feed{
+  position:relative;
+  inset:auto;
+  z-index:auto;
+  width:100%;
+  max-width:720px;
+  max-height:none;
+  aspect-ratio:4/3;
+  border:1px solid rgba(83,231,255,.34);
+  border-radius:17px;
+  box-shadow:0 24px 80px rgba(0,0,0,.38);
+  background:#050b13;
+  overflow:hidden;
+}
+.camera-live .vision-feed video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  filter:none;
+  transform:scaleX(-1);
+}
+.camera-live .camera-tint{
+  display:none;
+  background:transparent;
+}
+.camera-live .vision-feed canvas{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  opacity:1;
+  filter:drop-shadow(0 0 7px rgba(83,231,255,.55));
+  pointer-events:none;
+}
+.camera-live .vision-badge{
+  position:absolute;
+  top:13px;
+  left:13px;
+  z-index:5;
+}
+.camera-live .stop-camera{
+  position:absolute;
+  right:12px;
+  bottom:12px;
+  z-index:6;
+  min-width:180px;
+  min-height:54px;
+}
+.camera-live .pinch-cursor{
+  position:absolute;
+  z-index:5;
+}
+.camera-live .pinch-hint{
+  position:absolute;
+  left:50%;
+  bottom:14px;
+  z-index:5;
+  transform:translateX(-50%);
+  margin:0;
+  background:rgba(3,7,17,.58);
+}
+.experience.two-column{
+  align-items:start;
+}
+.experience.two-column>div:first-child{
+  min-width:0;
+}
+.lab-intro>div{
+  background:transparent;
+  backdrop-filter:none;
+  box-shadow:none;
+}
+.hand-dock{
+  background:transparent;
+  backdrop-filter:none;
+}
+@media(max-width:760px){
+  .vision-stage:not(.compact),
+  .camera-live{width:100%;max-width:100%}
+  .camera-live .vision-feed{border-radius:11px}
+  .camera-live .stop-camera{min-width:150px;min-height:50px}
+  .camera-live .pinch-hint{bottom:72px;white-space:nowrap}
+}
+
+
+/* Camera-composited science layers — July 2026 */
+.experience:has(> .hand-dock),
+.experience.two-column>div:first-child:has(> .hand-dock),
+.pose-skeleton>div:first-child,
+.pose-respiratory>div:first-child{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+}
+.experience:has(> .hand-dock)> .hand-dock,
+.experience.two-column>div:first-child:has(> .hand-dock)> .hand-dock,
+.pose-skeleton>div:first-child> .vision-stage,
+.pose-respiratory>div:first-child> .vision-stage{
+  grid-column:1;
+  grid-row:2;
+  align-self:stretch;
+}
+.hand-dock{
+  position:relative;
+  display:block;
+  padding:0;
+  min-height:clamp(430px,58vw,630px);
+  border:1px solid rgba(83,231,255,.34);
+  border-radius:17px;
+  overflow:hidden;
+  background:#050b13;
+}
+.hand-dock .vision-stage,
+.hand-dock .vision-feed{
+  width:100%;
+  height:100%;
+  min-height:clamp(430px,58vw,630px);
+  max-height:630px;
+  aspect-ratio:4/3;
+  border:0;
+  border-radius:0;
+}
+.hand-dock>div:last-child{
+  position:absolute;
+  top:14px;
+  left:50%;
+  z-index:7;
+  transform:translateX(-50%);
+  width:max-content;
+  max-width:calc(100% - 250px);
+  padding:8px 12px;
+  border:1px solid rgba(83,231,255,.28);
+  border-radius:999px;
+  background:rgba(3,7,17,.42);
+  text-align:center;
+  pointer-events:none;
+}
+.hand-dock>div:last-child small,
+.hand-dock>div:last-child span{display:none}
+.hand-dock>div:last-child b{font:700 9px var(--mono);letter-spacing:.08em;color:#effcff}
+.experience:has(> .hand-dock)> :is(.physics-stage,.ray-stage,.circuit-board,.energy-stage,.body-system,.heart-stage),
+.experience.two-column>div:first-child:has(> .hand-dock)> :is(.atom,.cell-diagram,.reaction-bench,.molecule-stage),
+.pose-skeleton>div:first-child> .metric-grid,
+.pose-respiratory>div:first-child> .lungs{
+  grid-column:1;
+  grid-row:2;
+  z-index:4;
+  align-self:stretch;
+  margin:0;
+  border-color:rgba(255,255,255,.2);
+  background:transparent;
+  box-shadow:none;
+}
+.experience:has(> .hand-dock)> :is(.physics-stage,.ray-stage,.circuit-board,.energy-stage,.body-system,.heart-stage),
+.experience.two-column>div:first-child:has(> .hand-dock)> :is(.atom,.cell-diagram,.reaction-bench,.molecule-stage){
+  min-height:clamp(430px,58vw,630px);
+  height:auto;
+}
+.pose-skeleton>div:first-child> .metric-grid{
+  align-self:end;
+  margin:0 14px 14px;
+  max-width:calc(100% - 28px);
+}
+.pose-skeleton>div:first-child> .metric-grid span{
+  background:rgba(3,7,17,.38);
+  border-color:rgba(83,231,255,.24);
+}
+.pose-respiratory>div:first-child> .lungs{
+  align-self:center;
+  justify-self:center;
+  width:min(72%,560px);
+  height:64%;
+}
+.physics-stage,.ray-stage,.circuit-board,.energy-stage,.body-system,.heart-stage,
+.atom,.cell-diagram,.reaction-bench,.molecule-stage{
+  backdrop-filter:none;
+}
+@media(max-width:760px){
+  .hand-dock,
+  .hand-dock .vision-stage,
+  .hand-dock .vision-feed{
+    min-height:420px;
+  }
+  .hand-dock>div:last-child{
+    top:56px;
+    max-width:calc(100% - 28px);
+    white-space:normal;
+  }
+}
+
+/* High-contrast AR content: the camera stays clear and every educational object is opaque. */
+.camera-live .camera-tint{display:none!important;background:transparent!important}
+.experience:has(> .hand-dock)> :is(.block,.energy-object,.target-zone),
+.experience.two-column>div:first-child:has(> .hand-dock)> :is(.nucleus,.atom-c,.atom-o,.flask),
+.circuit-board>button{
+  opacity:1;
+  filter:drop-shadow(0 3px 7px #02050b) drop-shadow(0 0 8px currentColor);
+}
+.hand-dock>div:last-child{
+  background:#06111d;
+  border-color:#53e7ff;
+  box-shadow:0 4px 16px #02050b;
+}
+
+/* Distinct, solid cell machinery instead of identical translucent hotspots. */
+.cell-diagram{
+  isolation:isolate;
+  background:transparent;
+  border:3px solid #63ffc3;
+  box-shadow:inset 0 0 0 6px #124d3c,0 0 18px #02050b;
+}
+.cell-diagram:before{
+  inset:4%;
+  border:3px solid #39d7e8;
+  background:transparent;
+}
+.cell-diagram .cell-wall{
+  z-index:3;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#07261f;
+  color:#9affdc;
+  font-size:10px;
+}
+.cell-diagram button.organelle{
+  z-index:3;
+  width:74px;
+  height:52px;
+  padding:0;
+  border:3px solid #f7fbff;
+  background:#237ca3;
+  box-shadow:0 4px 12px #02050b,0 0 12px currentColor;
+  overflow:visible;
+}
+.cell-diagram button.organelle i{width:100%;height:100%;border-radius:inherit;background:inherit;box-shadow:none}
+.cell-diagram button.organelle span{
+  position:absolute;
+  left:50%;
+  top:calc(100% + 7px);
+  transform:translateX(-50%);
+  min-width:max-content;
+  padding:4px 7px;
+  border:1px solid currentColor;
+  border-radius:5px;
+  background:#03101a;
+  color:#fff;
+  font:700 9px var(--font);
+  letter-spacing:.01em;
+  text-shadow:0 1px 3px #000;
+}
+.cell-diagram button.organelle.active{transform:translate(-50%,-50%) scale(1.14);border-color:#fff;box-shadow:0 0 0 5px #73ffc5,0 5px 18px #02050b}
+.cell-diagram .organelle-nucleus{width:96px!important;height:96px!important;border-radius:50%!important;background:radial-gradient(circle at 38% 37%,#ffe67a 0 10%,#f06cff 12% 45%,#7826a8 47% 100%)!important;color:#ff8df5}
+.cell-diagram .organelle-mitochondria{width:100px!important;height:48px!important;border-radius:52% 48% 58% 42%!important;background:repeating-linear-gradient(115deg,#ff8b35 0 8px,#9b261b 9px 14px)!important;color:#ff9c52;transform:translate(-50%,-50%) rotate(-13deg)}
+.cell-diagram .organelle-mitochondria.active{transform:translate(-50%,-50%) rotate(-13deg) scale(1.14)}
+.cell-diagram .organelle-vacuole{width:145px!important;height:105px!important;border-radius:55% 45% 48% 52%!important;background:#276de6!important;color:#76b8ff}
+.cell-diagram .organelle-chloroplast{width:94px!important;height:46px!important;border-radius:50%!important;background:repeating-linear-gradient(90deg,#62e465 0 9px,#116c35 10px 14px)!important;color:#74ff81;transform:translate(-50%,-50%) rotate(12deg)}
+.cell-diagram .organelle-chloroplast.active{transform:translate(-50%,-50%) rotate(12deg) scale(1.14)}
+.cell-diagram .organelle-golgi{width:94px!important;height:58px!important;border:0!important;border-radius:12px!important;background:repeating-linear-gradient(#ffcf4c 0 6px,#7a4510 7px 11px)!important;color:#ffd45d}
+.cell-diagram .organelle-ribosomes{width:74px!important;height:52px!important;border-radius:16px!important;background:radial-gradient(circle,#fff 0 3px,transparent 4px),#e14f6f!important;background-size:15px 15px!important;color:#ff7e98}
+.cell-diagram .organelle-er{width:116px!important;height:62px!important;border-radius:18px!important;background:repeating-linear-gradient(155deg,#31cdf3 0 5px,#075f86 6px 11px)!important;color:#5fe5ff}
+.cell-diagram .organelle-cytoplasm{width:58px!important;height:58px!important;border-radius:42% 58% 45% 55%!important;background:#b873ff!important;color:#d2a0ff}
+
+/* A live eye avatar driven by Face Landmarker blink, gaze, brow and squint blendshapes. */
+.tracked-eye-panel{
+  margin-top:12px;
+  min-height:210px;
+  display:grid;
+  place-items:center;
+  position:relative;
+  overflow:hidden;
+  border:2px solid #53e7ff;
+  border-radius:18px;
+  background:#06111d;
+  box-shadow:0 9px 30px #02050b;
+}
+.tracked-eye-panel>small{position:absolute;left:15px;top:13px;color:#53e7ff;font:800 10px var(--mono);letter-spacing:.11em}
+.tracked-eye-panel>span{position:absolute;bottom:12px;color:#dffaff;font:700 10px var(--mono);letter-spacing:.08em}
+.tracked-eye{position:relative;width:min(340px,72%);height:122px;display:grid;place-items:center}
+.tracked-eye-ball{
+  position:relative;
+  z-index:2;
+  width:100%;
+  height:104px;
+  overflow:hidden;
+  border:5px solid #38253f;
+  border-radius:50% 48%;
+  background:#fffdf2;
+  transform:scaleY(var(--eye-open));
+  transition:transform 45ms linear;
+  box-shadow:inset 0 0 24px #e9a8b4,0 0 0 3px #f4b7ad;
+}
+.tracked-iris{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:70px;
+  height:70px;
+  margin:-35px;
+  border:7px solid #16b5d1;
+  border-radius:50%;
+  background:radial-gradient(circle,#070b14 0 26%,#156e91 28% 57%,#5fe7e7 59% 70%,#0b6586 72%);
+  transform:translate(var(--eye-x),var(--eye-y));
+  transition:transform 55ms linear;
+  box-shadow:0 0 0 2px #083245;
+}
+.tracked-iris b{position:absolute;left:18px;top:13px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 6px #fff}
+.eye-brow{
+  position:absolute;
+  z-index:4;
+  left:9%;
+  right:9%;
+  top:0;
+  height:18px;
+  border-top:10px solid #5b3428;
+  border-radius:50%;
+  transform:translateY(var(--brow-lift));
+  transition:transform 70ms linear;
+}
+.eye-muscle{position:absolute;z-index:3;left:1%;right:1%;height:34px;border:7px solid #f05e7b;filter:drop-shadow(0 3px 3px #02050b)}
+.eye-muscle-upper{top:21px;border-width:7px 0 0;border-radius:50%}
+.eye-muscle-lower{bottom:3px;border-width:0 0 7px;border-radius:50%;transform:translateY(var(--eye-squint))}
+@media(max-width:760px){
+  .cell-diagram button.organelle{transform:translate(-50%,-50%) scale(.82)}
+  .cell-diagram button.organelle.active{transform:translate(-50%,-50%) scale(.95)}
+  .tracked-eye{width:86%}
+}

@@ -111,15 +111,34 @@ The service worker caches the application, MediaPipe runtime and models after th
 ## Performance architecture
 
 - Browser-only dynamic MediaPipe import
-- One model loaded for the active module
+- One shared `CameraProvider` owns the active stream and inference loop
+- `CameraStage` attaches the real stream and aligned AR canvas to each experience
+- Only the model required by the active module performs inference
 - GPU delegate first, automatic CPU fallback
 - 640 × 480 capture target
 - `requestAnimationFrame` video processing
 - Duplicate video timestamps skipped
-- High-frequency data held outside broad page renders where practical
-- Camera tracks, animation frames and model instances released on exit
+- Pinch hysteresis: grab below `0.045`, release above `0.065`
+- Smoothed mirrored fingertip coordinates and single-object grab locks
+- High-frequency stream, task, timing and pinch state held in refs
+- Camera tracks and animation frames are released on exit; safely loaded models are cached until the provider closes
 - Two-hand processing only for Finger Counter; other activities use the minimum needed model
 - Reduced-motion CSS support
+
+### Camera status and diagnostics
+
+Every camera experience shows permission, camera and model state instead of hiding failures. The main control reads **START CAMERA EXPERIENCE** and changes to **STOP CAMERA** while active.
+
+Open the gear button on the landing page to reveal the developer diagnostics panel. It reports the active stream/model, FPS, inference time, hand/pose/face detection, pinch state, grabbed object and last camera error. It stays hidden in normal exhibition mode.
+
+The AR layer order is:
+
+1. mirrored live webcam
+2. subtle `rgba(0, 0, 0, 0.14)` visibility tint
+3. aligned landmark canvas and educational objects
+4. controls and status UI
+
+The camera is not blurred.
 
 ## Arduino integration
 
@@ -138,7 +157,16 @@ The application remains fully usable without Arduino.
 ## Exhibition checklist
 
 - [ ] Open the site in Chrome or Edge and allow camera access
+- [ ] Confirm **START CAMERA EXPERIENCE** shows permission and model-loading states
+- [ ] Stop and restart each camera without refreshing
+- [ ] Exit each module and confirm the browser camera indicator turns off
+- [ ] Open Finger Counter after Pose, Face and Beat the Robot
+- [ ] Open Beat the Robot again after another camera experience
 - [ ] Visit Hand, Face and Pose modules once to warm/cache each model
+- [ ] Confirm hand landmarks align with the mirrored hand
+- [ ] Pinch the Force block, move it, release it, then hold an open palm to reset
+- [ ] Verify Skeleton Explorer hides low-confidence points and reports elbow angles
+- [ ] Verify separate squat and jumping-jack counters do not double count
 - [ ] Confirm Beat the Robot locks Rock, Paper and Scissors reliably
 - [ ] Confirm only the robot move reaches the Arduino
 - [ ] Test `R`, `P` and `S` from Serial Monitor before the website test
@@ -153,6 +181,7 @@ The application remains fully usable without Arduino.
 
 ## Important limitations
 
+- Automated builds validate code, assets and lifecycle wiring, but a real webcam permission prompt and physical gestures must be checked on the exhibition laptop.
 - Webcam force, height, gaze, posture and body-region values are educational screen estimates.
 - Pose lines do not represent visible bones.
 - The camera cannot see internal organs or measure heart rate/lung capacity.
