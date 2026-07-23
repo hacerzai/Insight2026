@@ -62,3 +62,165 @@
 .hand-cursor span{position:absolute;left:50%;top:43px;transform:translateX(-50%);padding:4px 7px;border-radius:5px;background:rgba(2,7,17,.82);color:var(--lab-cyan);font:700 8px var(--mono);letter-spacing:.1em;white-space:nowrap;opacity:.72}
 .hand-cursor.pinching span{color:var(--lab-green);opacity:1}
 @media(max-width:760px){.camera-live .vision-feed{inset:112px 0 0}.camera-live .vision-badge{top:124px}.hand-dock:has(.camera-live)>div:last-child{padding-right:0}}
+
+/* Reliable AR stage: live video, subtle tint, aligned drawing layer, then UI. */
+.lab-overlay:has(.camera-live){background:rgba(2,7,17,.12)}
+.lab-overlay:has(.camera-live)>main{position:relative;isolation:isolate}
+.lab-overlay:has(.camera-live) .experience,
+.lab-overlay:has(.camera-live) .quiz-live{position:relative;z-index:2}
+.camera-live{height:0;min-height:0;position:relative;z-index:1}
+.camera-live .vision-feed{
+  position:fixed;
+  inset:76px 0 0;
+  z-index:0;
+  max-height:none;
+  aspect-ratio:auto;
+  border:0;
+  border-radius:0;
+  background:#020711;
+  overflow:hidden;
+}
+.camera-live .vision-feed video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  filter:none;
+  transform:scaleX(-1);
+}
+.camera-live .camera-tint{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:rgba(0,0,0,.14);
+  pointer-events:none;
+}
+.camera-live .vision-feed canvas{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  opacity:1;
+  filter:drop-shadow(0 0 8px rgba(83,231,255,.6));
+  pointer-events:none;
+}
+.camera-live .vision-badge{position:fixed;top:92px;left:18px;z-index:4}
+.camera-live .stop-camera{
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:20;
+  min-width:190px;
+  min-height:56px;
+  font-size:12px;
+  background:rgba(3,7,17,.88);
+  backdrop-filter:blur(10px);
+}
+.vision-cover{z-index:5;padding:28px}
+.vision-cover>button{
+  min-width:min(420px,90%);
+  min-height:58px;
+  padding:0 24px;
+  font-size:13px;
+  letter-spacing:.11em;
+}
+.vision-cover>small{max-width:680px;font-size:14px;line-height:1.55}
+.camera-loading{
+  position:absolute;
+  inset:0;
+  z-index:6;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  text-align:center;
+  background:rgba(2,7,17,.76);
+  backdrop-filter:blur(5px);
+}
+.camera-loading i{
+  width:36px;
+  height:36px;
+  border:3px solid rgba(83,231,255,.18);
+  border-top-color:var(--lab-cyan);
+  border-radius:50%;
+  animation:lab-spin 1s linear infinite;
+}
+.camera-loading b{font:700 13px var(--mono);color:var(--lab-cyan);letter-spacing:.1em}
+.camera-loading span{font-size:13px;color:#b5c9d4}
+.pinch-hint{
+  position:fixed;
+  left:50%;
+  bottom:22px;
+  z-index:20;
+  transform:translateX(-50%);
+  margin:0;
+  padding:10px 16px;
+  border:1px solid rgba(83,231,255,.35);
+  border-radius:999px;
+  background:rgba(3,7,17,.78);
+  color:#dffaff;
+  font:700 10px var(--mono);
+  letter-spacing:.1em;
+  pointer-events:none;
+}
+.pinch-cursor{
+  position:absolute;
+  z-index:4;
+  width:32px;
+  height:32px;
+  translate:-50% -50%;
+  border:3px solid var(--lab-cyan);
+  border-radius:50%;
+  box-shadow:0 0 0 8px rgba(83,231,255,.12),0 0 22px rgba(83,231,255,.8);
+  pointer-events:none;
+}
+.pinch-cursor.pinching{
+  width:24px;
+  height:24px;
+  border-color:var(--lab-green);
+  box-shadow:0 0 0 10px rgba(115,255,197,.15),0 0 25px rgba(115,255,197,.9);
+}
+.hand-dock{grid-template-columns:minmax(320px,42%) 1fr;padding:14px}
+.hand-dock .vision-feed{height:auto;min-height:240px;aspect-ratio:4/3}
+.hand-dock .vision-cover>span{display:block}
+.hand-dock .vision-cover>b{font-size:13px}
+.hand-dock .vision-cover>small{display:block;font-size:12px}
+.hand-dock .vision-cover>button{display:block;min-width:min(340px,92%);min-height:56px;font-size:11px}
+.hand-dock>div:last-child small{font-size:10px}
+.hand-dock>div:last-child b{font-size:15px}
+.hand-dock>div:last-child span{font-size:12px}
+.camera-diagnostics{
+  position:fixed;
+  left:14px;
+  bottom:14px;
+  z-index:400;
+  width:290px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 12px;
+  padding:14px;
+  border:1px solid rgba(83,231,255,.35);
+  border-radius:10px;
+  background:rgba(2,7,17,.94);
+  color:#9fb6c4;
+  font:600 10px var(--mono);
+}
+.camera-diagnostics>b{grid-column:1/-1;color:var(--lab-cyan);margin-bottom:4px}
+.camera-diagnostics span{display:contents}
+.camera-diagnostics strong{color:#effcff;overflow-wrap:anywhere}
+.pose-challenges{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.pose-challenges span{padding:13px;border:1px solid rgba(124,209,255,.2);border-radius:9px;background:rgba(4,12,24,.72);color:#91a8b6;text-align:center;font:700 10px var(--mono)}
+.pose-challenges span.complete{border-color:var(--lab-green);color:var(--lab-green);box-shadow:0 0 18px rgba(115,255,197,.12)}
+.block.grabbed{border-color:var(--lab-green);box-shadow:0 0 0 5px rgba(115,255,197,.12),0 0 28px rgba(115,255,197,.45)}
+@media(max-width:760px){
+  .camera-live .vision-feed{inset:112px 0 0}
+  .camera-live .vision-badge{top:124px}
+  .hand-dock{grid-template-columns:1fr}
+  .hand-dock .vision-feed{min-height:220px}
+  .pinch-hint{bottom:84px;white-space:nowrap}
+  .pose-challenges{grid-template-columns:1fr}
+}

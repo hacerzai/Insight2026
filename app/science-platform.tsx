@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  FaceLandmarker,
-  GestureRecognizer,
-  HandLandmarker,
-  NormalizedLandmark,
-  PoseLandmarker,
-} from "@mediapipe/tasks-vision";
+import { useEffect, useRef, useState } from "react";
+import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { QUIZ_QUESTIONS, type QuizCategory, type QuizDifficulty } from "./quiz-data";
+import {
+  CameraDiagnostics,
+  CameraProvider,
+  CameraStage as VisionStage,
+  useCamera,
+  type VisionFrame,
+} from "./vision-camera";
 
-type VisionKind = "hand" | "face" | "pose";
 type ModuleType = "AI-powered" | "Interactive Simulation" | "AI + Simulation";
 
 interface ModuleInfo {
@@ -24,16 +24,6 @@ interface ModuleInfo {
   type: ModuleType;
   icon: string;
 }
-
-interface VisionFrame {
-  landmarks: NormalizedLandmark[][];
-  handedness?: string;
-  gestures?: { name: string; score: number }[];
-  blendshapes?: Record<string, number>;
-  fps: number;
-}
-
-const publicAsset = (path:string) => typeof window !== "undefined" && window.location.pathname.includes("/go-live/") ? `../public/${path}` : `/${path}`;
 
 const MODULES: ModuleInfo[] = [
   {id:"finger-counter",priority:1,group:"Computer Vision",title:"Finger Counter",classTopic:"Computer Vision Demo",description:"Count one or two hands, add numbers and explore binary fingers.",technology:"MediaPipe Hand Landmarker",type:"AI-powered",icon:"✋"},
@@ -67,162 +57,21 @@ const jointAngle = (a: NormalizedLandmark, b: NormalizedLandmark, c: NormalizedL
 };
 
 function countFingers(hand: NormalizedLandmark[]) {
-  if (hand.length < 21) return {total:0, states:[false,false,false,false,false]};
+  if (hand.length < 21) return {total:0, count:0, states:[false,false,false,false,false]};
   const palmScale = Math.max(distance(hand[0], hand[9]), .001);
   const extended = (mcp:number,pip:number,tip:number) => jointAngle(hand[mcp],hand[pip],hand[tip]) > 155 && distance(hand[tip],hand[0]) > distance(hand[pip],hand[0]) * 1.08;
   const thumbAngle = jointAngle(hand[1], hand[2], hand[4]);
   const thumb = thumbAngle > 145 && distance(hand[4], hand[5]) > palmScale * .45;
   const states = [thumb, extended(5,6,8), extended(9,10,12), extended(13,14,16), extended(17,18,20)];
-  return {total: states.filter(Boolean).length, states};
-}
-
-const handConnections: [number,number][] = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]];
-const poseConnections: [number,number][] = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[27,29],[29,31],[28,30],[30,32]];
-
-function VisionStage({kind,onFrame,compact=false}:{kind:VisionKind;onFrame?:(frame:VisionFrame)=>void;compact?:boolean}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const streamRef = useRef<MediaStream|null>(null);
-  const taskRef = useRef<HandLandmarker|FaceLandmarker|PoseLandmarker|GestureRecognizer|null>(null);
-  const pinchRef = useRef(false);
-  const pinchTargetRef = useRef<HTMLElement|null>(null);
-  const rafRef = useRef(0);
-  const lastTimeRef = useRef(-1);
-  const framesRef = useRef<number[]>([]);
-  const [status,setStatus] = useState<"idle"|"loading"|"ready"|"error">("idle");
-  const [error,setError] = useState("");
-
-  const stop = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach(track=>track.stop());
-    streamRef.current=null;
-    taskRef.current?.close();
-    taskRef.current=null;
-    pinchRef.current=false;
-    pinchTargetRef.current=null;
-    cursorRef.current?.classList.remove("visible","pinching");
-    if(videoRef.current) videoRef.current.srcObject=null;
-    setStatus("idle");
-  },[]);
-
-  useEffect(()=>stop,[kind,stop]);
-  useEffect(()=>stop,[stop]);
-
-  const start = async () => {
-    if(status==="loading"||status==="ready")return;
-    if(!window.isSecureContext){setError("Camera access needs localhost or HTTPS. Open this page with Go Live, not by double-clicking the HTML file.");setStatus("error");return;}
-    if(!navigator.mediaDevices?.getUserMedia){setError("Camera API is unavailable. Use current Chrome or Edge.");setStatus("error");return;}
-    stop(); setStatus("loading"); setError("");
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640,max:640},height:{ideal:480,max:480},facingMode:"user"},audio:false});
-      streamRef.current=stream;
-      const video=videoRef.current!; video.srcObject=stream; await video.play();
-      const vision = await import("@mediapipe/tasks-vision");
-      const files = await vision.FilesetResolver.forVisionTasks(publicAsset("mediapipe/wasm"));
-      const create = async (delegate:"GPU"|"CPU") => {
-        if(kind==="hand") return vision.HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:publicAsset("models/hand_landmarker.task"),delegate},runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:.6,minHandPresenceConfidence:.6,minTrackingConfidence:.6});
-        if(kind==="face") return vision.FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:publicAsset("models/face_landmarker.task"),delegate},runningMode:"VIDEO",numFaces:1,outputFaceBlendshapes:true,minFaceDetectionConfidence:.6,minFacePresenceConfidence:.6,minTrackingConfidence:.6});
-        return vision.PoseLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:publicAsset("models/pose_landmarker_lite.task"),delegate},runningMode:"VIDEO",numPoses:1,minPoseDetectionConfidence:.6,minPosePresenceConfidence:.6,minTrackingConfidence:.6});
-      };
-      try{taskRef.current=await create("GPU");}catch{taskRef.current=await create("CPU");}
-      setStatus("ready");
-      const loop=()=>{
-        if(video.readyState>=2 && video.currentTime!==lastTimeRef.current && taskRef.current){
-          lastTimeRef.current=video.currentTime;
-          const now=performance.now(); framesRef.current.push(now); framesRef.current=framesRef.current.filter(t=>now-t<1000);
-          let landmarks:NormalizedLandmark[][]=[]; let handedness:string|undefined; let blendshapes:Record<string,number>|undefined;
-          if(kind==="hand"){
-            const result=(taskRef.current as HandLandmarker).detectForVideo(video,now); landmarks=result.landmarks; handedness=result.handedness?.[0]?.[0]?.categoryName;
-            const hand=landmarks[0];
-            const cursor=cursorRef.current;
-            if(hand&&cursor){
-              const x=(1-hand[8].x)*window.innerWidth;
-              const y=hand[8].y*window.innerHeight;
-              const pinching=distance(hand[4],hand[8])<.055;
-              cursor.style.transform=`translate3d(${x}px,${y}px,0)`;
-              cursor.classList.add("visible");
-              cursor.classList.toggle("pinching",pinching);
-              const below=document.elementFromPoint(x,y) as HTMLElement|null;
-              const target=below?.closest<HTMLElement>("button,input,select,[data-hand-interactive],.physics-stage,.energy-object,.cell-diagram button")??null;
-              if(pinching&&!pinchRef.current){
-                pinchTargetRef.current=target;
-                target?.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,clientX:x,clientY:y,pointerId:77,pointerType:"touch",buttons:1}));
-              }
-              if(pinching&&pinchTargetRef.current){
-                const held=pinchTargetRef.current;
-                if(held instanceof HTMLInputElement&&held.type==="range"){
-                  const rect=held.getBoundingClientRect();
-                  const min=Number(held.min||0),max=Number(held.max||100),step=Number(held.step||1);
-                  const raw=min+clamp((x-rect.left)/Math.max(rect.width,1),0,1)*(max-min);
-                  const value=Math.round(raw/step)*step;
-                  const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set;
-                  setter?.call(held,String(value));
-                  held.dispatchEvent(new Event("input",{bubbles:true}));
-                  held.dispatchEvent(new Event("change",{bubbles:true}));
-                }
-                held.dispatchEvent(new PointerEvent("pointermove",{bubbles:true,clientX:x,clientY:y,pointerId:77,pointerType:"touch",buttons:1}));
-              }
-              if(!pinching&&pinchRef.current){
-                const held=pinchTargetRef.current;
-                held?.dispatchEvent(new PointerEvent("pointerup",{bubbles:true,clientX:x,clientY:y,pointerId:77,pointerType:"touch",buttons:0}));
-                if(held&&(held===target||held.contains(below))&&(held instanceof HTMLButtonElement||held instanceof HTMLSelectElement))held.click();
-                pinchTargetRef.current=null;
-              }
-              pinchRef.current=pinching;
-            }else if(cursor){
-              cursor.classList.remove("visible","pinching");
-              pinchRef.current=false;
-              pinchTargetRef.current=null;
-            }
-          }else if(kind==="face"){
-            const result=(taskRef.current as FaceLandmarker).detectForVideo(video,now); landmarks=result.faceLandmarks;
-            blendshapes=Object.fromEntries((result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
-          }else{
-            const result=(taskRef.current as PoseLandmarker).detectForVideo(video,now); landmarks=result.landmarks;
-          }
-          drawOverlay(canvasRef.current,video,landmarks,kind);
-          onFrame?.({landmarks,handedness,blendshapes,fps:framesRef.current.length});
-        }
-        rafRef.current=requestAnimationFrame(loop);
-      };
-      rafRef.current=requestAnimationFrame(loop);
-    }catch(cause){
-      const message=cause instanceof Error?cause.message:"Camera or AI model could not start.";
-      stop();
-      const denied=cause instanceof DOMException&&cause.name==="NotAllowedError";
-      setError(denied||message.includes("Permission")?"Camera permission was denied. Click the camera icon in the address bar, choose Allow, then retry.":message);
-      setStatus("error");
-    }
-  };
-
-  return <div className={`vision-stage ${compact?"compact":""} ${status==="ready"?"camera-live":""}`}>
-    <div className="vision-feed"><video ref={videoRef} muted playsInline/><canvas ref={canvasRef}/>
-      {status!=="ready"&&<div className="vision-cover"><span>◉</span><b>{status==="loading"?"STARTING CAMERA + LOCAL AI":"CAMERA READY"}</b><small>{status==="error"?error:status==="loading"?"Please wait—the first model load can take a few seconds.":"Frames stay in this browser."}</small><button onClick={start} disabled={status==="loading"}>{status==="error"?"RETRY":status==="loading"?"STARTING…":"START CAMERA"}</button></div>}
-      <div className="vision-badge"><i className={status}/>{status==="ready"?`${kind.toUpperCase()} AI LIVE`:status.toUpperCase()}</div>
-    </div>
-    {status==="ready"&&<button className="stop-camera" onClick={stop}>Stop camera</button>}
-    {kind==="hand"&&<div ref={cursorRef} className="hand-cursor" aria-hidden="true"><span>PINCH</span></div>}
-  </div>;
-}
-
-function drawOverlay(canvas:HTMLCanvasElement|null,video:HTMLVideoElement,sets:NormalizedLandmark[][],kind:VisionKind){
-  if(!canvas)return; canvas.width=video.videoWidth||640;canvas.height=video.videoHeight||480;
-  const c=canvas.getContext("2d");if(!c)return;c.clearRect(0,0,canvas.width,canvas.height);
-  const connections=kind==="hand"?handConnections:kind==="pose"?poseConnections:[];
-  c.save();c.translate(canvas.width,0);c.scale(-1,1);c.lineWidth=3;c.strokeStyle="#38e8ff";c.fillStyle="#89ffca";
-  sets.forEach(points=>{
-    connections.forEach(([a,b])=>{if(points[a]&&points[b]){c.beginPath();c.moveTo(points[a].x*canvas.width,points[a].y*canvas.height);c.lineTo(points[b].x*canvas.width,points[b].y*canvas.height);c.stroke();}});
-    const sampled=kind==="face"?points.filter((_,i)=>i%8===0):points;
-    sampled.forEach((p,i)=>{c.beginPath();c.arc(p.x*canvas.width,p.y*canvas.height,kind==="face"?1.8:4,0,Math.PI*2);c.fill();if(kind!=="face"){c.fillStyle="#fff";c.font="10px monospace";c.fillText(String(i),p.x*canvas.width+6,p.y*canvas.height-5);c.fillStyle="#89ffca";}});
-  });c.restore();
+  const total = states.filter(Boolean).length;
+  return {total, count:total, states};
 }
 
 function HandDock({instruction,onFrame}:{instruction:string;onFrame:(frame:VisionFrame)=>void}){
-  return <div className="hand-dock"><VisionStage kind="hand" compact onFrame={onFrame}/><div><small>OPTIONAL HAND CONTROL</small><b>{instruction}</b><span>Mouse/touch remains available as fallback.</span></div></div>
+  return <div className="hand-dock"><VisionStage kind="hand" compact onFrame={onFrame} cameraFunction={`Camera function: ${instruction.toLowerCase()}.`}/><div><small>LIVE HAND CONTROL</small><b>{instruction}</b><span>Pinch to grab. Mouse/touch remains available as fallback.</span></div></div>
 }
 
-function SciencePlatform(){
+function SciencePlatformContent(){
   const [active,setActive]=useState<string|null>(null);
   const [sound,setSound]=useState(false);
   const [exhibition,setExhibition]=useState(false);
@@ -242,7 +91,7 @@ function SciencePlatform(){
   const openRobot=()=>document.getElementById("beat-robot")?.scrollIntoView({behavior:"smooth",block:"start"});
   return <section className={`science-platform ${exhibition?"exhibition":""}`} id="science-lab">
     <nav className="lab-nav"><a href="#science-lab" className="lab-brand"><span>V</span><b>VISION AI</b> SCIENCE LAB</a><div className="lab-links"><button onClick={openRobot}>BEAT THE ROBOT</button><a href="#physics">PHYSICS</a><a href="#biology">BIOLOGY</a><a href="#chemistry">CHEMISTRY</a><a href="#computer-vision">AI VISION</a></div><div className="lab-tools"><button onClick={()=>setSound(!sound)} aria-label="Toggle sound">{sound?"🔊":"🔇"}</button><button onClick={toggleExhibition}>⛶ EXHIBITION</button><button onClick={()=>setAdvanced(!advanced)}>⚙</button></div></nav>
-    {advanced&&<div className="advanced-panel"><b>ADVANCED STATUS</b><span>Camera: starts only inside an active module</span><span>Models: on demand · GPU-first · CPU fallback</span><span>Processing: 640 × 480 · local browser inference</span><span>FPS appears on active vision stages</span></div>}
+    {advanced&&<div className="advanced-panel"><b>ADVANCED STATUS</b><span>Camera: one shared stream across the active module</span><span>Models: on demand · GPU-first · CPU fallback</span><span>Processing: 640 × 480 · local browser inference</span><span>Diagnostics are visible in the lower-left corner</span></div>}
     <header className="lab-hero"><div><p>INSIGHT 2026 · AI CATEGORY</p><h2>Learn science by<br/><em>moving through it.</em></h2><span>Computer vision turns your hands, face and pose into controls for accurate Class 9–10 science experiences.</span><div className="hero-actions"><a href="#priority-one">EXPLORE EXPERIENCES</a><button onClick={openRobot}>BEAT THE ROBOT ↓</button></div></div><div className="hero-orbit" aria-hidden="true"><i/><i/><i/><b>AI</b><span>LANDMARKS</span><span>SIMULATION</span><span>ROBOTICS</span></div></header>
     <section className="featured-strip" id="priority-one"><div className="robot-module-card"><span>01</span><b>Beat the Robot</b><small>MediaPipe hand AI → Arduino servos</small><p>Play Rock–Paper–Scissors against TinyBot and send its move to the physical two-servo hand.</p><button onClick={openRobot}>PLAY MAIN ATTRACTION →</button></div>{MODULES.filter(m=>m.priority===1).map(m=><ModuleCard key={m.id} module={m} onOpen={setActive}/>) }<QuizCard onOpen={()=>setActive("quiz")}/></section>
     {groups.map(group=><section className="module-section" id={group.toLowerCase().replace(" ","-")} key={group}><div className="section-heading"><p>{group.toUpperCase()} AI LAB</p><h3>{group}</h3><span>{group==="Computer Vision"?"See what landmark models estimate—and what they cannot know.":"Explore NCERT science with live controls, exact rules and honest AI labels."}</span></div><div className="module-grid">{MODULES.filter(m=>m.group===group&&m.priority!==1).map(m=><ModuleCard key={m.id} module={m} onOpen={setActive}/>)}</div></section>)}
@@ -250,6 +99,7 @@ function SciencePlatform(){
     <footer><b>VISION AI SCIENCE LAB</b><span>Learn Science Through Artificial Intelligence</span><small>Camera frames are processed locally. No identity or emotion recognition.</small></footer>
     {active&&<LabShell id={active} onClose={()=>setActive(null)}/>} 
     {attract&&<AttractScreen onStart={()=>setAttract(false)}/>} 
+    <CameraDiagnostics visible={advanced}/>
   </section>;
 }
 
@@ -302,11 +152,64 @@ function HandExplorer(){
 }
 
 function ForceMotion(){
-  const [mass,setMass]=useState(2);const [friction,setFriction]=useState(.15);const [x,setX]=useState(12);const [velocity,setVelocity]=useState(0);const [last,setLast]=useState<number|null>(null);const [force,setForce]=useState(0);const target=82;
-  const pushPosition=(p:number)=>{if(last!==null&&Math.abs(p-x)<12){const f=clamp((p-last)*18,-55,55);setForce(f);setVelocity(v=>v+f/mass*.06);}setLast(p)};
-  const push=(clientX:number,rect:DOMRect)=>pushPosition(clamp((clientX-rect.left)/rect.width*100,0,100));
-  useEffect(()=>{const t=setInterval(()=>{setVelocity(v=>v*(1-friction*.12));setX(p=>clamp(p+velocity*.04,4,94));setForce(f=>f*.82)},32);return()=>clearInterval(t)},[velocity,friction]);
-  return <div className="experience"><LabIntro objective="Relate force, mass, acceleration, friction and momentum." ai="A hand model provides fingertip motion; this exhibit also accepts a mouse for reliable fallback." limit="Force is estimated from screen movement and is not a real measurement in newtons."/><HandDock instruction="Move your index fingertip through the block" onFrame={f=>{const h=f.landmarks[0];if(h)pushPosition((1-h[8].x)*100)}}/><div className="physics-stage" onPointerMove={e=>{if(e.buttons)push(e.clientX,e.currentTarget.getBoundingClientRect())}} onPointerDown={e=>push(e.clientX,e.currentTarget.getBoundingClientRect())}><div className="target-zone" style={{left:`${target}%`}}>TARGET</div><div className="block" style={{left:`${x}%`}}><b>{mass} kg</b></div><i className="force-vector" style={{left:`${x}%`,width:`${Math.abs(force)}px`,transform:`scaleX(${force<0?-1:1})`}}>F</i><div className="surface"/></div><div className="control-grid"><label>Mass <input type="range" min="1" max="10" value={mass} onChange={e=>setMass(+e.target.value)}/><b>{mass} kg</b></label><label>Friction <input type="range" min="0" max="1" step=".05" value={friction} onChange={e=>setFriction(+e.target.value)}/><b>{friction.toFixed(2)}</b></label><span>Estimated force <b>{force.toFixed(1)}</b></span><span>Velocity <b>{velocity.toFixed(2)}</b></span><span>Momentum p = mv <b>{(mass*velocity).toFixed(2)}</b></span><span>Acceleration a = F/m <b>{(force/mass).toFixed(2)}</b></span></div><div className="formula-ribbon"><b>F = ma</b><b>p = mv</b><b>Δp = F × t</b><span>{Math.abs(x-target)<5?"Challenge complete — target reached":"Drag/push the block toward the target using least force"}</span></div></div>
+  const [mass,setMass]=useState(2);
+  const [friction,setFriction]=useState(.15);
+  const [x,setX]=useState(12);
+  const [velocity,setVelocity]=useState(0);
+  const [force,setForce]=useState(0);
+  const lastRef=useRef<number|null>(null);
+  const grabbedRef=useRef<{offset:number}|null>(null);
+  const openPalmFrames=useRef(0);
+  const {setGrabbedObject}=useCamera();
+  const target=82;
+  const moveBlock=(next:number)=>{
+    const previous=lastRef.current;
+    if(previous!==null){
+      const delta=next-previous;
+      const nextForce=clamp(delta*18,-55,55);
+      setForce(nextForce);
+      setVelocity(delta/.032);
+    }
+    lastRef.current=next;
+    setX(clamp(next,4,94));
+  };
+  const onHandFrame=(frame:VisionFrame)=>{
+    const hand=frame.landmarks[0];
+    const interaction=frame.interaction;
+    if(!hand||!interaction)return;
+    if(countFingers(hand).total>=5){
+      openPalmFrames.current+=1;
+      if(openPalmFrames.current===12){setX(12);setVelocity(0);setForce(0)}
+    }else openPalmFrames.current=0;
+    const pointer=interaction.x*100;
+    if(interaction.phase==="start"&&Math.abs(pointer-x)<13){
+      grabbedRef.current={offset:x-pointer};
+      setGrabbedObject("force block");
+    }
+    if(interaction.active&&grabbedRef.current)moveBlock(pointer+grabbedRef.current.offset);
+    if(interaction.phase==="end"&&grabbedRef.current){
+      grabbedRef.current=null;
+      setGrabbedObject("");
+    }
+    if(!interaction.active&&!grabbedRef.current&&Math.abs(pointer-x)<10){
+      const previous=lastRef.current;
+      if(previous!==null&&Math.abs(pointer-previous)>0.15)moveBlock(x+(pointer-previous)*.28);
+      lastRef.current=pointer;
+    }
+  };
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      if(grabbedRef.current)return;
+      setVelocity(current=>{
+        const next=current*(1-friction*.18);
+        setX(position=>clamp(position+next*.0018,4,94));
+        return Math.abs(next)<.01?0:next;
+      });
+      setForce(current=>current*.78);
+    },32);
+    return()=>clearInterval(timer);
+  },[friction]);
+  return <div className="experience"><LabIntro objective="Relate force, mass, acceleration, friction and displacement." ai="Camera function: tracks your fingertip to push the block and uses a real pinch lock to pick it up." limit="Force is estimated from screen movement and is not a real measurement in newtons."/><HandDock instruction="Push with your fingertip, or pinch the block to grab and drag it" onFrame={onHandFrame}/><div className="physics-stage" onPointerMove={event=>{if(event.buttons){const rect=event.currentTarget.getBoundingClientRect();moveBlock((event.clientX-rect.left)/rect.width*100)}}}><div className="target-zone" style={{left:`${target}%`}}>TARGET</div><div className={`block ${grabbedRef.current?"grabbed":""}`} style={{left:`${x}%`}}><b>{mass} kg</b></div><i className="force-vector" style={{left:`${x}%`,width:`${Math.abs(force)}px`,transform:`scaleX(${force<0?-1:1})`}}>F</i><div className="surface"/></div><div className="control-grid"><label>Mass <input type="range" min="1" max="10" value={mass} onChange={e=>setMass(+e.target.value)}/><b>{mass} kg</b></label><label>Friction <input type="range" min="0" max="1" step=".05" value={friction} onChange={e=>setFriction(+e.target.value)}/><b>{friction.toFixed(2)}</b></label><span>Estimated force <b>{force.toFixed(1)}</b></span><span>Velocity <b>{velocity.toFixed(2)}</b></span><span>Displacement <b>{(x-12).toFixed(1)}</b></span><span>Acceleration a = F/m <b>{(force/mass).toFixed(2)}</b></span></div><div className="formula-ribbon"><b>F = ma</b><b>p = mv</b><b>Δx = x − x₀</b><span>{Math.abs(x-target)<5?"Challenge complete — target reached":"Open palm for 12 frames to reset"}</span></div></div>
 }
 
 function EnergyLab(){const [mass,setMass]=useState(2);const [height,setHeight]=useState(2);const [released,setReleased]=useState(false);const pinchingRef=useRef(false);const g=9.8;const pe=mass*g*height;const ke=released?pe*.82:0;const lift=(f:VisionFrame)=>{const hand=f.landmarks[0];if(!hand)return;const pinching=distance(hand[4],hand[8])<.055;if(pinching){const next=clamp((1-hand[8].y)*5.5,.5,5);setHeight(old=>Math.abs(old-next)>.04?Number(next.toFixed(1)):old);setReleased(false)}else if(pinchingRef.current)setReleased(true);pinchingRef.current=pinching};return <div className="experience"><LabIntro objective="Observe energy transfer during lifting and falling." ai="Hand landmarks estimate pinch and vertical screen displacement; pinch-and-lift directly controls the virtual object." limit="Height and power are screen-space educational estimates, not laboratory measurements."/><HandDock instruction="Pinch the object, lift your hand, then open your fingers to release it" onFrame={lift}/><div className="energy-stage"><div className={`energy-object ${released?"falling":""}`} style={{bottom:`${40+height*45}px`}} onPointerDown={()=>setReleased(false)}>▣</div><div className="height-rule">{height.toFixed(1)} m</div></div><div className="control-grid"><label>Virtual mass<input type="range" min="1" max="10" value={mass} onChange={e=>setMass(+e.target.value)}/><b>{mass} kg</b></label><label>Height<input type="range" min=".5" max="5" step=".1" value={height} onChange={e=>{setHeight(+e.target.value);setReleased(false)}}/><b>{height} m</b></label><button onClick={()=>setReleased(true)}>RELEASE OBJECT</button><span>Work done <b>{pe.toFixed(1)} J</b></span></div><div className="energy-bars"><span style={{"--value":`${released?18:100}%`} as React.CSSProperties}>PE {released?(pe*.18).toFixed(1):pe.toFixed(1)} J</span><span style={{"--value":`${released?82:0}%`} as React.CSSProperties}>KE {ke.toFixed(1)} J</span><span style={{"--value":"8%"} as React.CSSProperties}>AIR RESISTANCE</span></div><div className="formula-ribbon"><b>PE = mgh</b><b>KE = ½mv²</b><b>Power = Work / time</b></div></div>}
@@ -321,7 +224,38 @@ function AtomicLab(){const [p,setP]=useState(6);const [n,setN]=useState(6);const
 const organelles=[{name:"Nucleus",x:52,y:48,fn:"Controls cell activities and contains genetic material."},{name:"Mitochondria",x:31,y:66,fn:"Release usable energy during aerobic respiration."},{name:"Vacuole",x:68,y:57,fn:"Stores cell sap; usually large and central in plant cells."},{name:"Chloroplast",x:30,y:35,fn:"Contains chlorophyll and carries out photosynthesis."},{name:"Golgi apparatus",x:72,y:32,fn:"Modifies, sorts and packages cell products."},{name:"Ribosomes",x:46,y:73,fn:"Sites of protein synthesis."},{name:"Endoplasmic reticulum",x:54,y:29,fn:"Membrane network that transports materials."},{name:"Cytoplasm",x:42,y:50,fn:"Fluid medium where many chemical reactions occur."}];
 function CellLab(){const [plant,setPlant]=useState(true);const [selected,setSelected]=useState(organelles[0]);const [quiz,setQuiz]=useState(false);const [target,setTarget]=useState(organelles[3]);const choose=(o:typeof organelles[number])=>{setSelected(o);if(quiz&&o.name===target.name)setTarget(organelles[Math.floor(Math.random()*organelles.length)])};const point=(f:VisionFrame)=>{const h=f.landmarks[0];if(!h)return;const x=(1-h[8].x)*100,y=h[8].y*100;const candidates=organelles.filter(o=>plant||o.name!=="Chloroplast");const nearest=candidates.reduce((a,b)=>Math.hypot(a.x-x,a.y-y)<Math.hypot(b.x-x,b.y-y)?a:b);if(Math.hypot(nearest.x-x,nearest.y-y)<13)choose(nearest)};return <div className="experience two-column"><div><div className="mode-tabs"><button className={plant?"active":""} onClick={()=>setPlant(true)}>PLANT CELL</button><button className={!plant?"active":""} onClick={()=>setPlant(false)}>ANIMAL CELL</button><button className={quiz?"active":""} onClick={()=>setQuiz(!quiz)}>QUIZ MODE</button></div><HandDock instruction="Point your index finger at an organelle" onFrame={point}/><div className={`cell-diagram ${plant?"plant":"animal"}`}><span className="cell-wall">CELL {plant?"WALL":"MEMBRANE"}</span>{organelles.filter(o=>plant||o.name!=="Chloroplast").map(o=><button key={o.name} style={{left:`${o.x}%`,top:`${o.y}%`}} className={selected.name===o.name?"active":""} onClick={()=>choose(o)} title={o.name}><i/></button>)}</div></div><LabIntro objective="Identify organelles and compare plant and animal cells." ai="A hand landmark pointer selects organelle hotspots; the diagram and facts are authored educational content." limit="Cell structures are stylised and not drawn to microscopic scale."><div className="organelle-readout"><small>{quiz?`POINT TO: ${target.name}`:"SELECTED ORGANELLE"}</small><h3>{selected.name}</h3><p>{selected.fn}</p></div><KnowledgeCheck questions={["Why do plant cells need chloroplasts?","Which structure releases energy?","What protects a plant cell?"]}/></LabIntro></div>}
 
-function PoseLab({mode}:{mode:"intelligence"|"skeleton"|"respiratory"}){const [frame,setFrame]=useState<VisionFrame>({landmarks:[],fps:0});const [squats,setSquats]=useState(0);const [jacks,setJacks]=useState(0);const [phase,setPhase]=useState("up");const pose=frame.landmarks[0];useEffect(()=>{if(!pose)return;const knee=(jointAngle(pose[23],pose[25],pose[27])+jointAngle(pose[24],pose[26],pose[28]))/2;const armsUp=pose[15].y<pose[11].y&&pose[16].y<pose[12].y;const legsWide=Math.abs(pose[27].x-pose[28].x)>.28;if(knee<115&&phase==="up")setPhase("down");if(knee>155&&phase==="down"){setSquats(s=>s+1);setPhase("up")};if(armsUp&&legsWide&&phase!=="jack")setPhase("jack");if(!armsUp&&!legsWide&&phase==="jack"){setJacks(j=>j+1);setPhase("up")}},[pose,phase]);const inhaling=pose?pose[15].y<pose[11].y&&pose[16].y<pose[12].y:false;return <div className="experience two-column"><div><VisionStage kind="pose" onFrame={setFrame}/>{mode==="intelligence"&&<div className="metric-grid"><span><small>SQUATS</small><b>{squats}</b></span><span><small>JUMPING JACKS</small><b>{jacks}</b></span><span><small>LEFT ELBOW</small><b>{pose?jointAngle(pose[11],pose[13],pose[15]).toFixed(0):"—"}°</b></span><span><small>KNEE ANGLE</small><b>{pose?jointAngle(pose[23],pose[25],pose[27]).toFixed(0):"—"}°</b></span></div>}{mode==="respiratory"&&<div className={`lungs ${inhaling?"inhale":"exhale"}`}><i/><i/><b>{inhaling?"INHALING":"EXHALING"}</b><span>CO₂ ⇄ O₂ · ALVEOLI GAS EXCHANGE</span></div>}</div><LabIntro objective={mode==="skeleton"?"Connect visible body movement with major bones and joint types.":mode==="respiratory"?"Control a model of inhalation and exhalation with arm movement.":"Measure joint geometry and count movement using stable states."} ai="MediaPipe estimates body landmarks from pixels; rules calculate angles and movement phases." limit={mode==="skeleton"?"The camera does not see bones. Lines are an estimated pose overlay.":mode==="respiratory"?"Arm gestures control the model; lung capacity is not measured.":"This is not medical posture analysis or exercise coaching."}>{mode==="skeleton"?<div className="bone-list">{["Skull · fixed joints","Clavicle · shoulder support","Humerus · upper arm","Radius + Ulna · forearm","Vertebral column · axial support","Pelvis · ball-and-socket hip","Femur · thigh","Patella · kneecap","Tibia + Fibula · lower leg"].map(x=><span key={x}>{x}</span>)}</div>:mode==="respiratory"?<div className="breath-steps"><b>{inhaling?"DIAPHRAGM CONTRACTS ↓":"DIAPHRAGM RELAXES ↑"}</b><span>{inhaling?"Chest volume increases · air enters":"Chest volume decreases · air exits"}</span></div>:<KnowledgeCheck questions={["Raise left arm","Make a T-pose","Perform one squat"]}/>}</LabIntro></div>}
+function PoseLab({mode}:{mode:"intelligence"|"skeleton"|"respiratory"}){
+  const [frame,setFrame]=useState<VisionFrame>({landmarks:[],fps:0});
+  const [squats,setSquats]=useState(0);
+  const [jacks,setJacks]=useState(0);
+  const squatState=useRef<"standing"|"down">("standing");
+  const jackState=useRef<"closed"|"open">("closed");
+  const pose=frame.landmarks[0];
+  const visible=(index:number)=>(pose?.[index]?.visibility??0)>.45;
+  const leftElbow=pose&&visible(11)&&visible(13)&&visible(15)?jointAngle(pose[11],pose[13],pose[15]):0;
+  const rightElbow=pose&&visible(12)&&visible(14)&&visible(16)?jointAngle(pose[12],pose[14],pose[16]):0;
+  const knee=pose&&visible(23)&&visible(25)&&visible(27)&&visible(24)&&visible(26)&&visible(28)
+    ?(jointAngle(pose[23],pose[25],pose[27])+jointAngle(pose[24],pose[26],pose[28]))/2:0;
+  const armsUp=Boolean(pose&&visible(15)&&visible(16)&&pose[15].y<pose[11].y&&pose[16].y<pose[12].y);
+  const legsWide=Boolean(pose&&visible(27)&&visible(28)&&Math.abs(pose[27].x-pose[28].x)>.28);
+  const tPose=Boolean(pose&&leftElbow>155&&rightElbow>155&&Math.abs(pose[15].y-pose[11].y)<.12&&Math.abs(pose[16].y-pose[12].y)<.12);
+  const leftArmRaised=Boolean(pose&&visible(15)&&pose[15].y<pose[11].y-.1);
+  const rightArmRaised=Boolean(pose&&visible(16)&&pose[16].y<pose[12].y-.1);
+  useEffect(()=>{
+    if(!pose||knee===0)return;
+    if(squatState.current==="standing"&&knee<112)squatState.current="down";
+    else if(squatState.current==="down"&&knee>158){squatState.current="standing";setSquats(value=>value+1)}
+    if(jackState.current==="closed"&&armsUp&&legsWide)jackState.current="open";
+    else if(jackState.current==="open"&&!armsUp&&!legsWide){jackState.current="closed";setJacks(value=>value+1)}
+  },[pose,knee,armsUp,legsWide]);
+  const inhaling=armsUp;
+  const cameraFunction=mode==="skeleton"
+    ?"Camera function: estimates 33 pose landmarks and draws an educational skeleton."
+    :mode==="respiratory"
+      ?"Camera function: estimates body landmarks; raised hands control inhalation."
+      :"Camera function: estimates 33 pose landmarks and measures movement states.";
+  return <div className="experience two-column"><div><VisionStage kind="pose" cameraFunction={cameraFunction} onFrame={setFrame}/>{mode==="intelligence"&&<><div className="pose-challenges"><span className={tPose?"complete":""}>T-POSE {tPose?"✓":"—"}</span><span className={leftArmRaised?"complete":""}>LEFT ARM {leftArmRaised?"✓":"—"}</span><span className={rightArmRaised?"complete":""}>RIGHT ARM {rightArmRaised?"✓":"—"}</span></div><div className="metric-grid"><span><small>SQUATS</small><b>{squats}</b></span><span><small>JUMPING JACKS</small><b>{jacks}</b></span><span><small>LEFT / RIGHT ELBOW</small><b>{pose?`${leftElbow.toFixed(0)}° / ${rightElbow.toFixed(0)}°`:"—"}</b></span><span><small>KNEE ANGLE</small><b>{pose?`${knee.toFixed(0)}°`:"—"}</b></span></div></>}{mode==="skeleton"&&pose&&<div className="metric-grid"><span><small>LEFT ELBOW</small><b>{leftElbow.toFixed(0)}°</b></span><span><small>RIGHT ELBOW</small><b>{rightElbow.toFixed(0)}°</b></span><span><small>LEFT ARM</small><b>{leftArmRaised?"RAISED":"LOWERED"}</b></span><span><small>RIGHT ARM</small><b>{rightArmRaised?"RAISED":"LOWERED"}</b></span></div>}{mode==="respiratory"&&<div className={`lungs ${inhaling?"inhale":"exhale"}`}><i/><i/><b>{inhaling?"INHALING":"EXHALING"}</b><span>CO₂ ⇄ O₂ · ALVEOLI GAS EXCHANGE</span></div>}</div><LabIntro objective={mode==="skeleton"?"Connect visible body movement with major bones and joint types.":mode==="respiratory"?"Control a model of inhalation and exhalation with arm movement.":"Measure joint geometry and count movement using separate stable state machines."} ai={cameraFunction} limit={mode==="skeleton"?"Bone positions are educational approximations based on pose landmarks. The camera does not see bones.":mode==="respiratory"?"Arm gestures control the model; lung capacity is not measured.":"This is not medical posture analysis or exercise coaching."}>{mode==="skeleton"?<div className="bone-list">{["Skull · fixed joints","Clavicle · shoulder support","Humerus · upper arm","Radius + Ulna · forearm","Vertebral column · axial support","Pelvis · ball-and-socket hip","Femur · thigh","Patella · kneecap","Tibia + Fibula · lower leg"].map(x=><span key={x}>{x}</span>)}</div>:mode==="respiratory"?<div className="breath-steps"><b>{inhaling?"DIAPHRAGM CONTRACTS ↓":"DIAPHRAGM RELAXES ↑"}</b><span>{inhaling?"Chest volume increases · air enters":"Chest volume decreases · air exits"}</span></div>:<KnowledgeCheck questions={["Hold a T-pose","Raise left arm","Raise right arm","Perform one squat","Perform one jumping jack"]}/>}</LabIntro></div>
+}
 
 function EyeLab(){const [frame,setFrame]=useState<VisionFrame>({landmarks:[],fps:0});const [defect,setDefect]=useState("normal");const [power,setPower]=useState(0);const b=frame.blendshapes??{};const blink=((b.eyeBlinkLeft??0)+(b.eyeBlinkRight??0))/2;const gaze=(b.eyeLookOutLeft??0)>.35?"RIGHT":(b.eyeLookOutRight??0)>.35?"LEFT":"CENTRE";return <div className="experience two-column"><div><VisionStage kind="face" onFrame={setFrame}/><div className="metric-grid"><span><small>GAZE ESTIMATE</small><b>{gaze}</b></span><span><small>EYE OPENNESS</small><b>{Math.round((1-blink)*100)}%</b></span><span><small>BLINK</small><b>{blink>.55?"YES":"NO"}</b></span><span><small>STATUS</small><b>NON-MEDICAL</b></span></div></div><LabIntro objective="Link visible eye landmarks with the optics of image formation." ai="Face Landmarker estimates facial geometry and blendshape movement." limit="Gaze and blink values are approximate and not diagnostic or medical-grade."><div className={`eye-model ${defect}`}><div className="cornea"/><div className="iris"/><div className="lens"/><div className="retina"/><div className="optic-nerve"/><i className="eye-ray"/><b>{defect==="normal"?"IMAGE ON RETINA":defect==="myopia"?"IMAGE BEFORE RETINA":defect==="hypermetropia"?"IMAGE BEHIND RETINA":"FOCUS RANGE REDUCED"}</b></div><div className="mode-tabs">{["normal","myopia","hypermetropia","presbyopia"].map(x=><button key={x} className={defect===x?"active":""} onClick={()=>setDefect(x)}>{x}</button>)}</div><label>Corrective lens power <input type="range" min="-5" max="5" step=".25" value={power} onChange={e=>setPower(+e.target.value)}/><b>{power} D</b></label><p>{defect==="myopia"?"Concave lens":defect==="hypermetropia"?"Convex lens":defect==="presbyopia"?"Reading/bifocal correction":"No correction"}</p></LabIntro></div>}
 
@@ -355,4 +289,6 @@ function SystemLab(){return <div className="system-lab"><div className="big-pipe
 function KnowledgeCheck({questions}:{questions:string[]}){return <div className="knowledge-check"><small>KNOWLEDGE CHECK</small>{questions.map((q,i)=><button key={q}><span>{i+1}</span>{q}</button>)}</div>}
 function AttractScreen({onStart}:{onStart:()=>void}){const [i,setI]=useState(0);const lines=["Beat the Robot","Control Science with Your Hands","See How AI Tracks Your Body","Take the Gesture-Controlled Science Quiz"];useEffect(()=>{const t=setInterval(()=>setI(x=>(x+1)%lines.length),2600);return()=>clearInterval(t)},[]);return <button className="attract-screen" onClick={onStart}><span>VISION AI SCIENCE LAB</span><h2>{lines[i]}</h2><b>TOUCH ANYWHERE TO START</b></button>}
 
-export default SciencePlatform;
+export default function SciencePlatform(){
+  return <CameraProvider><SciencePlatformContent/></CameraProvider>;
+}
