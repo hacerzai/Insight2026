@@ -326,3 +326,108 @@
   .camera-live .stop-camera{min-width:150px;min-height:50px}
   .camera-live .pinch-hint{bottom:72px;white-space:nowrap}
 }
+
+
+/* Camera-composited science layers — July 2026 */
+.experience:has(> .hand-dock),
+.experience.two-column>div:first-child:has(> .hand-dock),
+.pose-skeleton>div:first-child,
+.pose-respiratory>div:first-child{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+}
+.experience:has(> .hand-dock)> .hand-dock,
+.experience.two-column>div:first-child:has(> .hand-dock)> .hand-dock,
+.pose-skeleton>div:first-child> .vision-stage,
+.pose-respiratory>div:first-child> .vision-stage{
+  grid-column:1;
+  grid-row:2;
+  align-self:stretch;
+}
+.hand-dock{
+  position:relative;
+  display:block;
+  padding:0;
+  min-height:clamp(430px,58vw,630px);
+  border:1px solid rgba(83,231,255,.34);
+  border-radius:17px;
+  overflow:hidden;
+  background:#050b13;
+}
+.hand-dock .vision-stage,
+.hand-dock .vision-feed{
+  width:100%;
+  height:100%;
+  min-height:clamp(430px,58vw,630px);
+  max-height:630px;
+  aspect-ratio:4/3;
+  border:0;
+  border-radius:0;
+}
+.hand-dock>div:last-child{
+  position:absolute;
+  top:14px;
+  left:50%;
+  z-index:7;
+  transform:translateX(-50%);
+  width:max-content;
+  max-width:calc(100% - 250px);
+  padding:8px 12px;
+  border:1px solid rgba(83,231,255,.28);
+  border-radius:999px;
+  background:rgba(3,7,17,.42);
+  text-align:center;
+  pointer-events:none;
+}
+.hand-dock>div:last-child small,
+.hand-dock>div:last-child span{display:none}
+.hand-dock>div:last-child b{font:700 9px var(--mono);letter-spacing:.08em;color:#effcff}
+.experience:has(> .hand-dock)> :is(.physics-stage,.ray-stage,.circuit-board,.energy-stage,.body-system,.heart-stage),
+.experience.two-column>div:first-child:has(> .hand-dock)> :is(.atom,.cell-diagram,.reaction-bench,.molecule-stage),
+.pose-skeleton>div:first-child> .metric-grid,
+.pose-respiratory>div:first-child> .lungs{
+  grid-column:1;
+  grid-row:2;
+  z-index:4;
+  align-self:stretch;
+  margin:0;
+  border-color:rgba(255,255,255,.2);
+  background:transparent;
+  box-shadow:none;
+}
+.experience:has(> .hand-dock)> :is(.physics-stage,.ray-stage,.circuit-board,.energy-stage,.body-system,.heart-stage),
+.experience.two-column>div:first-child:has(> .hand-dock)> :is(.atom,.cell-diagram,.reaction-bench,.molecule-stage){
+  min-height:clamp(430px,58vw,630px);
+  height:auto;
+}
+.pose-skeleton>div:first-child> .metric-grid{
+  align-self:end;
+  margin:0 14px 14px;
+  max-width:calc(100% - 28px);
+}
+.pose-skeleton>div:first-child> .metric-grid span{
+  background:rgba(3,7,17,.38);
+  border-color:rgba(83,231,255,.24);
+}
+.pose-respiratory>div:first-child> .lungs{
+  align-self:center;
+  justify-self:center;
+  width:min(72%,560px);
+  height:64%;
+}
+.physics-stage,.ray-stage,.circuit-board,.energy-stage,.body-system,.heart-stage,
+.atom,.cell-diagram,.reaction-bench,.molecule-stage{
+  backdrop-filter:none;
+}
+@media(max-width:760px){
+  .hand-dock,
+  .hand-dock .vision-stage,
+  .hand-dock .vision-feed{
+    min-height:420px;
+  }
+  .hand-dock>div:last-child{
+    top:56px;
+    max-width:calc(100% - 28px);
+    white-space:normal;
+  }
+}
