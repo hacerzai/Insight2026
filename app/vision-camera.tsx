@@ -403,6 +403,127 @@ function makePinchInteraction(
   };
 }
 
+
+function drawPoseAnatomy(
+  context: CanvasRenderingContext2D,
+  points: NormalizedLandmark[],
+  width: number,
+  height: number,
+) {
+  const visible = (index: number) => points[index] && (points[index].visibility ?? 1) >= 0.45;
+  const point = (index: number) => ({ x: points[index].x * width, y: points[index].y * height });
+  const segment = (from: number, to: number, thickness: number, offset = 0) => {
+    if (!visible(from) || !visible(to)) return;
+    const a = point(from);
+    const b = point(to);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = Math.max(Math.hypot(dx, dy), 1);
+    const ox = (-dy / length) * offset;
+    const oy = (dx / length) * offset;
+    const gradient = context.createLinearGradient(a.x, a.y, b.x, b.y);
+    gradient.addColorStop(0, "rgba(255,249,225,.98)");
+    gradient.addColorStop(.52, "rgba(221,236,225,.94)");
+    gradient.addColorStop(1, "rgba(255,249,225,.98)");
+    context.save();
+    context.lineCap = "round";
+    context.strokeStyle = "rgba(9,24,34,.72)";
+    context.lineWidth = thickness + 5;
+    context.beginPath();
+    context.moveTo(a.x + ox, a.y + oy);
+    context.lineTo(b.x + ox, b.y + oy);
+    context.stroke();
+    context.strokeStyle = gradient;
+    context.lineWidth = thickness;
+    context.beginPath();
+    context.moveTo(a.x + ox, a.y + oy);
+    context.lineTo(b.x + ox, b.y + oy);
+    context.stroke();
+    context.restore();
+  };
+  const joint = (index: number, radius: number) => {
+    if (!visible(index)) return;
+    const p = point(index);
+    context.save();
+    context.fillStyle = "rgba(245,255,238,.96)";
+    context.strokeStyle = "rgba(35,232,255,.9)";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+  };
+
+  const shoulderWidth = visible(11) && visible(12) ? Math.abs(point(11).x - point(12).x) : width * .22;
+  if (visible(7) && visible(8) && visible(0)) {
+    const leftEar = point(7);
+    const rightEar = point(8);
+    const nose = point(0);
+    const skullWidth = Math.max(Math.abs(leftEar.x - rightEar.x) * 1.45, shoulderWidth * .38);
+    const skullHeight = skullWidth * 1.2;
+    context.save();
+    context.fillStyle = "rgba(240,246,225,.28)";
+    context.strokeStyle = "rgba(255,249,225,.96)";
+    context.lineWidth = Math.max(4, skullWidth * .055);
+    context.beginPath();
+    context.ellipse(nose.x, nose.y - skullHeight * .08, skullWidth * .5, skullHeight * .52, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+  }
+
+  if (visible(11) && visible(12) && visible(23) && visible(24)) {
+    const shoulderL = point(11);
+    const shoulderR = point(12);
+    const hipL = point(23);
+    const hipR = point(24);
+    const shoulderMid = { x:(shoulderL.x + shoulderR.x) / 2, y:(shoulderL.y + shoulderR.y) / 2 };
+    const hipMid = { x:(hipL.x + hipR.x) / 2, y:(hipL.y + hipR.y) / 2 };
+    const torsoHeight = Math.max(Math.hypot(hipMid.x - shoulderMid.x, hipMid.y - shoulderMid.y), 1);
+    context.save();
+    context.strokeStyle = "rgba(244,249,225,.82)";
+    context.lineWidth = Math.max(3, shoulderWidth * .025);
+    for (let rib = 0; rib < 6; rib += 1) {
+      const t = .18 + rib * .105;
+      const cx = shoulderMid.x + (hipMid.x - shoulderMid.x) * t;
+      const cy = shoulderMid.y + (hipMid.y - shoulderMid.y) * t;
+      const scale = 1 - rib * .055;
+      context.beginPath();
+      context.ellipse(cx, cy, shoulderWidth * .38 * scale, torsoHeight * .075, 0, 0, Math.PI * 2);
+      context.stroke();
+    }
+    context.strokeStyle = "rgba(255,249,225,.98)";
+    context.lineWidth = Math.max(7, shoulderWidth * .06);
+    context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(shoulderMid.x, shoulderMid.y);
+    context.lineTo(hipMid.x, hipMid.y);
+    context.stroke();
+    context.fillStyle = "rgba(240,246,225,.25)";
+    context.beginPath();
+    context.ellipse(hipMid.x, hipMid.y, Math.abs(hipL.x - hipR.x) * .56, torsoHeight * .13, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+  }
+
+  segment(11, 12, Math.max(8, shoulderWidth * .075));
+  segment(11, 13, Math.max(9, shoulderWidth * .085));
+  segment(12, 14, Math.max(9, shoulderWidth * .085));
+  segment(13, 15, Math.max(6, shoulderWidth * .052), -4);
+  segment(13, 15, Math.max(5, shoulderWidth * .044), 4);
+  segment(14, 16, Math.max(6, shoulderWidth * .052), -4);
+  segment(14, 16, Math.max(5, shoulderWidth * .044), 4);
+  segment(23, 25, Math.max(12, shoulderWidth * .11));
+  segment(24, 26, Math.max(12, shoulderWidth * .11));
+  segment(25, 27, Math.max(8, shoulderWidth * .07), -4);
+  segment(25, 27, Math.max(7, shoulderWidth * .06), 4);
+  segment(26, 28, Math.max(8, shoulderWidth * .07), -4);
+  segment(26, 28, Math.max(7, shoulderWidth * .06), 4);
+  [11,12,13,14,15,16,23,24,25,26,27,28].forEach((index) => joint(index, Math.max(5, shoulderWidth * .045)));
+}
+
 function drawLandmarks(
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
@@ -425,8 +546,7 @@ function drawLandmarks(
   context.lineWidth = kind === "pose" ? 5 : 3;
   context.strokeStyle = "#38e8ff";
   context.fillStyle = "#89ffca";
-  sets.forEach((points) => {
-    connections.forEach(([from, to]) => {
+  sets.forEach((points) => {\n    if (kind === "pose") drawPoseAnatomy(context, points, width, height);\n    connections.forEach(([from, to]) => {
       const a = points[from];
       const b = points[to];
       if (!a || !b || (kind === "pose" && ((a.visibility ?? 1) < 0.45 || (b.visibility ?? 1) < 0.45))) return;
