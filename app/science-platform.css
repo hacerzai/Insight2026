@@ -224,3 +224,105 @@
   .pinch-hint{bottom:84px;white-space:nowrap}
   .pose-challenges{grid-template-columns:1fr}
 }
+
+
+/* Contained, transparent AR stage — July 2026 */
+.lab-overlay:has(.camera-live){
+  background:radial-gradient(circle at 70% 0,rgba(77,62,183,.12),transparent 35%),#030711;
+}
+.lab-overlay:has(.camera-live)>main{
+  isolation:auto;
+  position:relative;
+}
+.lab-overlay:has(.camera-live) .experience,
+.lab-overlay:has(.camera-live) .quiz-live{
+  position:relative;
+  z-index:auto;
+}
+.camera-live{
+  height:auto;
+  min-height:0;
+  position:relative;
+  z-index:auto;
+}
+.camera-live .vision-feed{
+  position:relative;
+  inset:auto;
+  z-index:auto;
+  width:100%;
+  max-height:630px;
+  aspect-ratio:4/3;
+  border:1px solid rgba(83,231,255,.34);
+  border-radius:17px;
+  box-shadow:0 24px 80px rgba(0,0,0,.38);
+  background:#050b13;
+  overflow:hidden;
+}
+.camera-live .vision-feed video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  filter:none;
+  transform:scaleX(-1);
+}
+.camera-live .camera-tint{
+  display:none;
+  background:transparent;
+}
+.camera-live .vision-feed canvas{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  opacity:1;
+  filter:drop-shadow(0 0 7px rgba(83,231,255,.55));
+  pointer-events:none;
+}
+.camera-live .vision-badge{
+  position:absolute;
+  top:13px;
+  left:13px;
+  z-index:5;
+}
+.camera-live .stop-camera{
+  position:absolute;
+  right:12px;
+  bottom:12px;
+  z-index:6;
+  min-width:180px;
+  min-height:54px;
+}
+.camera-live .pinch-cursor{
+  position:absolute;
+  z-index:5;
+}
+.camera-live .pinch-hint{
+  position:absolute;
+  left:50%;
+  bottom:14px;
+  z-index:5;
+  transform:translateX(-50%);
+  margin:0;
+  background:rgba(3,7,17,.58);
+}
+.experience.two-column{
+  align-items:start;
+}
+.lab-intro>div{
+  background:transparent;
+  backdrop-filter:none;
+  box-shadow:none;
+}
+.hand-dock{
+  background:transparent;
+  backdrop-filter:none;
+}
+@media(max-width:760px){
+  .camera-live .vision-feed{border-radius:11px}
+  .camera-live .stop-camera{min-width:150px;min-height:50px}
+  .camera-live .pinch-hint{bottom:72px;white-space:nowrap}
+}
