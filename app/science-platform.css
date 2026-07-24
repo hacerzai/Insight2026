@@ -439,86 +439,69 @@
 .cell-diagram .organelle-er{width:116px!important;height:62px!important;border-radius:18px!important;background:repeating-linear-gradient(155deg,#31cdf3 0 5px,#075f86 6px 11px)!important;color:#5fe5ff}
 .cell-diagram .organelle-cytoplasm{width:58px!important;height:58px!important;border-radius:42% 58% 45% 55%!important;background:#b873ff!important;color:#d2a0ff}
 
-/* A live eye avatar driven by Face Landmarker blink, gaze, brow and squint blendshapes. */
+/* A precise SVG eye avatar driven by the existing Face Landmarker values. */
 .tracked-eye-panel{
   margin-top:12px;
-  min-height:230px;
+  min-height:260px;
   display:grid;
   place-items:center;
   position:relative;
   overflow:hidden;
   border:2px solid #53e7ff;
   border-radius:18px;
-  background:radial-gradient(circle at 50% 52%,#102739 0,#07141f 46%,#04101a 100%);
-  box-shadow:inset 0 0 35px rgba(83,231,255,.05),0 9px 30px #02050b;
+  background:
+    radial-gradient(ellipse at 50% 46%,rgba(25,75,99,.72) 0,rgba(7,24,36,.88) 45%,#04101a 75%),
+    linear-gradient(135deg,#071724,#020811);
+  box-shadow:inset 0 0 42px rgba(83,231,255,.08),0 9px 30px #02050b;
 }
-.tracked-eye-panel>small{position:absolute;left:15px;top:13px;color:#53e7ff;font:800 10px var(--mono);letter-spacing:.11em}
-.tracked-eye-panel>span{position:absolute;bottom:12px;color:#dffaff;font:700 10px var(--mono);letter-spacing:.08em}
-.tracked-eye{position:relative;width:min(390px,78%);height:150px;display:grid;place-items:center}
-.tracked-eye-socket{
-  position:relative;
-  z-index:2;
-  width:100%;
-  height:122px;
-  overflow:hidden;
-  border-radius:65% 35% 62% 38% / 55% 56% 44% 45%;
-  filter:drop-shadow(0 7px 10px rgba(0,0,0,.38));
-}
-.tracked-eye-ball{
+.tracked-eye-panel:before{
+  content:"";
   position:absolute;
   inset:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  border:4px solid #7d4b57;
-  border-radius:inherit;
-  background:radial-gradient(ellipse at 50% 45%,#fff 0 45%,#fff9ed 62%,#e7b6bb 90%);
-  box-shadow:inset 0 -14px 25px rgba(174,74,94,.22),inset 0 12px 20px rgba(120,61,75,.1),0 0 0 2px #f0a8b2;
+  background:linear-gradient(115deg,transparent 22%,rgba(83,231,255,.045) 50%,transparent 75%);
+  pointer-events:none;
 }
-.tracked-iris{
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:82px;
-  height:82px;
-  margin:-41px;
-  border:5px solid #064c6c;
-  border-radius:50%;
-  background:repeating-conic-gradient(from 4deg,#22d7dc 0 8deg,#08769b 9deg 16deg);
-  transform:translate(var(--eye-x),var(--eye-y));
+.tracked-eye-panel>small{position:absolute;z-index:2;left:15px;top:13px;color:#53e7ff;font:800 10px var(--mono);letter-spacing:.11em}
+.tracked-eye-panel>span{position:absolute;z-index:2;bottom:12px;color:#dffaff;font:700 10px var(--mono);letter-spacing:.08em}
+.tracked-eye{position:relative;width:min(520px,88%);height:206px;display:grid;place-items:center}
+.tracked-eye-svg{display:block;width:100%;height:100%;overflow:visible}
+.tracked-iris-vector{
+  transform:translate(calc(210px + var(--eye-x)),calc(112px + var(--eye-y)));
+  transform-origin:0 0;
   transition:transform 55ms linear;
-  box-shadow:inset 0 0 0 16px rgba(6,76,108,.35),inset 0 0 15px #02121c,0 0 0 2px #55e4ef;
 }
-.tracked-iris:before{content:"";position:absolute;inset:24%;border-radius:50%;background:radial-gradient(circle at 45% 42%,#122536 0 18%,#01060c 22% 100%);box-shadow:0 0 9px #02070c}
-.tracked-iris b{position:absolute;z-index:2;left:18px;top:12px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 0 7px #fff}
-.tracked-iris em{position:absolute;z-index:2;right:15px;bottom:16px;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.75)}
-.eye-sclera-gloss{position:absolute;left:12%;right:12%;top:9%;height:20%;border-radius:50%;background:linear-gradient(rgba(255,255,255,.5),transparent);pointer-events:none}
-.eye-tear-duct{position:absolute;z-index:3;left:1%;top:43%;width:25px;height:24px;border-radius:60% 20% 60% 20%;background:radial-gradient(circle at 70% 50%,#ffd2d5,#d86776 70%);box-shadow:0 0 8px rgba(176,57,77,.45)}
-.tracked-lid{position:absolute;z-index:5;left:-2%;width:104%;height:62%;background:linear-gradient(90deg,#bd6e70,#f0a9a5 38%,#e29491 70%,#ad5c63);border-color:#6c3747;transition:transform 45ms linear;pointer-events:none}
-.tracked-lid-upper{top:0;border-bottom:5px solid #74394b;border-radius:0 0 52% 48%;transform:translateY(var(--upper-lid))}
-.tracked-lid-lower{bottom:0;border-top:4px solid #8b4856;border-radius:50% 50% 0 0;transform:translateY(var(--lower-lid))}
-.eye-lashes{position:absolute;z-index:6;left:7%;right:6%;top:7px;height:27px;border-top:5px solid #3c2534;border-radius:50%;transform:translateY(var(--upper-lid));transition:transform 45ms linear;filter:drop-shadow(0 3px 2px rgba(0,0,0,.35));pointer-events:none}
-.eye-lashes:before,.eye-lashes:after{content:"";position:absolute;top:-8px;width:48px;height:18px;border-top:4px solid #3c2534;border-radius:50%}
-.eye-lashes:before{left:15%;transform:rotate(-12deg)}
-.eye-lashes:after{right:15%;transform:rotate(12deg)}
-.eye-brow{
-  position:absolute;
-  z-index:4;
-  left:10%;
-  right:8%;
-  top:-1px;
-  height:18px;
-  border-top:9px solid #684234;
-  border-radius:50%;
+.eye-sclera-vector{stroke:#c36f7c;stroke-width:4}
+.eye-gloss-vector{fill:rgba(255,255,255,.25);filter:blur(1px);pointer-events:none}
+.eye-outline-vector{fill:none;stroke:#864555;stroke-width:5;stroke-linejoin:round}
+.eye-lash-vector{fill:none;stroke:#33212d;stroke-width:7;stroke-linecap:round;filter:drop-shadow(0 3px 2px rgba(0,0,0,.45))}
+.eye-tear-vector{fill:#e7838d;stroke:#9d4355;stroke-width:3}
+.tracked-lid-vector{fill:url(#tracked-skin);transition:transform 45ms linear}
+.tracked-lid-vector-upper{transform:translateY(var(--upper-lid))}
+.tracked-lid-vector-lower{transform:translateY(var(--lower-lid))}
+.eye-brow-vector{
+  fill:none;
+  stroke:#704536;
+  stroke-width:13;
+  stroke-linecap:round;
   transform:translateY(var(--brow-lift));
   transition:transform 70ms linear;
-  filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));
+  filter:drop-shadow(0 3px 2px rgba(0,0,0,.48));
 }
-.eye-muscle{position:absolute;z-index:1;left:0;right:0;height:42px;border:6px solid #f05e7b;opacity:.88;filter:drop-shadow(0 3px 3px #02050b)}
-.eye-muscle-upper{top:24px;border-width:6px 0 0;border-radius:50%}
-.eye-muscle-lower{bottom:4px;border-width:0 0 6px;border-radius:50%;transform:translateY(var(--eye-squint));transition:transform 70ms linear}
+.eye-muscle-vector{
+  fill:none;
+  stroke:#ef5c78;
+  stroke-width:7;
+  stroke-linecap:round;
+  opacity:.78;
+  filter:drop-shadow(0 3px 3px #02050b);
+}
+.eye-muscle-vector-lower{
+  transform:translateY(var(--eye-squint));
+  transition:transform 70ms linear;
+}
 @media(max-width:760px){
   .cell-diagram button.organelle{transform:translate(-50%,-50%) scale(.82)}
   .cell-diagram button.organelle.active{transform:translate(-50%,-50%) scale(.95)}
-  .tracked-eye{width:90%}
+  .tracked-eye-panel{min-height:230px}
+  .tracked-eye{width:96%;height:190px}
 }
