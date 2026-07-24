@@ -272,26 +272,63 @@ function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
     "--eye-x":`${clamp((lookRight-lookLeft)*18,-18,18)}px`,
     "--eye-y":`${clamp((lookDown-lookUp)*10,-10,10)}px`,
     "--brow-lift":`${-clamp(brow*14,0,14)}px`,
-    "--upper-lid":`${-62+closed*58}px`,
-    "--lower-lid":`${62-closed*58}px`,
+    "--upper-lid":`${-102+closed*98}px`,
+    "--lower-lid":`${102-closed*98}px`,
     "--eye-squint":`${-clamp(squint*8,0,8)}px`,
   } as React.CSSProperties;
   return <div className="tracked-eye-panel" style={style}>
     <small>LIVE EYE-MUSCLE AVATAR</small>
     <div className="tracked-eye">
-      <i className="eye-brow"/>
-      <i className="eye-muscle eye-muscle-upper"/>
-      <div className="tracked-eye-socket">
-        <div className="tracked-eye-ball">
-          <i className="eye-tear-duct"/>
-          <i className="tracked-iris"><b/><em/></i>
-          <i className="eye-sclera-gloss"/>
-        </div>
-        <i className="tracked-lid tracked-lid-upper"/>
-        <i className="tracked-lid tracked-lid-lower"/>
-        <i className="eye-lashes"/>
-      </div>
-      <i className="eye-muscle eye-muscle-lower"/>
+      <svg className="tracked-eye-svg" viewBox="0 0 420 220" role="img" aria-label="Animated educational eye avatar">
+        <defs>
+          <clipPath id="tracked-eye-clip">
+            <path d="M34 112C96 39 303 38 386 111C308 183 101 184 34 112Z"/>
+          </clipPath>
+          <radialGradient id="tracked-sclera" cx="48%" cy="43%" r="74%">
+            <stop offset="0" stopColor="#fff"/>
+            <stop offset=".64" stopColor="#fffaf2"/>
+            <stop offset=".88" stopColor="#f3d5d4"/>
+            <stop offset="1" stopColor="#d995a1"/>
+          </radialGradient>
+          <radialGradient id="tracked-iris" cx="42%" cy="38%" r="65%">
+            <stop offset="0" stopColor="#7ff8ff"/>
+            <stop offset=".38" stopColor="#17bdd2"/>
+            <stop offset=".72" stopColor="#087190"/>
+            <stop offset="1" stopColor="#02384f"/>
+          </radialGradient>
+          <linearGradient id="tracked-skin" x1="0" x2="1">
+            <stop offset="0" stopColor="#9f5362"/>
+            <stop offset=".42" stopColor="#efaba7"/>
+            <stop offset=".72" stopColor="#d98588"/>
+            <stop offset="1" stopColor="#914a59"/>
+          </linearGradient>
+          <filter id="tracked-eye-shadow" x="-20%" y="-30%" width="140%" height="170%">
+            <feDropShadow dx="0" dy="7" stdDeviation="7" floodColor="#01060c" floodOpacity=".62"/>
+          </filter>
+        </defs>
+        <path className="eye-muscle-vector eye-muscle-vector-upper" d="M69 76C149 20 282 20 359 73"/>
+        <path className="eye-muscle-vector eye-muscle-vector-lower" d="M70 155C150 204 280 203 357 153"/>
+        <g filter="url(#tracked-eye-shadow)">
+          <path className="eye-sclera-vector" d="M34 112C96 39 303 38 386 111C308 183 101 184 34 112Z" fill="url(#tracked-sclera)"/>
+          <g clipPath="url(#tracked-eye-clip)">
+            <g className="tracked-iris-vector">
+              <circle r="48" fill="#052f43" stroke="#58ebf5" strokeWidth="4"/>
+              <circle r="42" fill="url(#tracked-iris)"/>
+              {[0,30,60,90,120,150].map(angle=><path key={angle} d="M0-38L0-17" stroke="#9dfcff" strokeWidth="3" strokeLinecap="round" opacity=".55" transform={`rotate(${angle})`}/>)}
+              <circle r="19" fill="#02070c"/>
+              <circle cx="-13" cy="-15" r="9" fill="#fff" opacity=".94"/>
+              <circle cx="16" cy="17" r="4" fill="#d9ffff" opacity=".72"/>
+            </g>
+            <ellipse className="eye-gloss-vector" cx="204" cy="76" rx="112" ry="18"/>
+            <path className="tracked-lid-vector tracked-lid-vector-upper" d="M-8-5H428V119C323 62 102 62-8 119Z"/>
+            <path className="tracked-lid-vector tracked-lid-vector-lower" d="M-8 106C103 162 320 162 428 106V230H-8Z"/>
+          </g>
+          <path className="eye-outline-vector" d="M34 112C96 39 303 38 386 111C308 183 101 184 34 112Z"/>
+          <path className="eye-lash-vector" d="M42 107C111 40 300 38 379 104"/>
+          <path className="eye-tear-vector" d="M34 112C47 96 57 97 67 112C56 127 46 128 34 112Z"/>
+        </g>
+        <path className="eye-brow-vector" d="M96 50C172 17 279 21 340 49"/>
+      </svg>
     </div>
     <span>{blink>.55?"BLINKING WITH YOU":"MOVE YOUR EYES · THEN BLINK"}</span>
   </div>
