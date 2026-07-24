@@ -1,4 +1,4 @@
-const CACHE = "vision-ai-science-lab-v1";
+const CACHE = "vision-ai-science-lab-v4";
 const CORE = [
   "/",
   "/tinybot.js",
@@ -26,11 +26,38 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-    if (response.ok && new URL(event.request.url).origin === self.location.origin) {
-      const copy = response.clone();
-      caches.open(CACHE).then(cache => cache.put(event.request, copy));
-    }
-    return response;
-  })));
+  const request = event.request;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  const networkFirst =
+    request.mode === "navigate" ||
+    request.destination === "document" ||
+    request.destination === "script" ||
+    request.destination === "style";
+
+  if (networkFirst) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then(cache => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then(cached => cached || fetch(request).then(response => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE).then(cache => cache.put(request, copy));
+      }
+      return response;
+    }))
+  );
 });
