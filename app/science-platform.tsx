@@ -257,7 +257,45 @@ function PoseLab({mode}:{mode:"intelligence"|"skeleton"|"respiratory"}){
   return <div className={`experience two-column pose-${mode}`}><div><VisionStage kind="pose" cameraFunction={cameraFunction} onFrame={setFrame}/>{mode==="intelligence"&&<><div className="pose-challenges"><span className={tPose?"complete":""}>T-POSE {tPose?"✓":"—"}</span><span className={leftArmRaised?"complete":""}>LEFT ARM {leftArmRaised?"✓":"—"}</span><span className={rightArmRaised?"complete":""}>RIGHT ARM {rightArmRaised?"✓":"—"}</span></div><div className="metric-grid"><span><small>SQUATS</small><b>{squats}</b></span><span><small>JUMPING JACKS</small><b>{jacks}</b></span><span><small>LEFT / RIGHT ELBOW</small><b>{pose?`${leftElbow.toFixed(0)}° / ${rightElbow.toFixed(0)}°`:"—"}</b></span><span><small>KNEE ANGLE</small><b>{pose?`${knee.toFixed(0)}°`:"—"}</b></span></div></>}{mode==="skeleton"&&pose&&<div className="metric-grid"><span><small>LEFT ELBOW</small><b>{leftElbow.toFixed(0)}°</b></span><span><small>RIGHT ELBOW</small><b>{rightElbow.toFixed(0)}°</b></span><span><small>LEFT ARM</small><b>{leftArmRaised?"RAISED":"LOWERED"}</b></span><span><small>RIGHT ARM</small><b>{rightArmRaised?"RAISED":"LOWERED"}</b></span></div>}{mode==="respiratory"&&<div className={`lungs ${inhaling?"inhale":"exhale"}`}><i/><i/><b>{inhaling?"INHALING":"EXHALING"}</b><span>CO₂ ⇄ O₂ · ALVEOLI GAS EXCHANGE</span></div>}</div><LabIntro objective={mode==="skeleton"?"Connect visible body movement with major bones and joint types.":mode==="respiratory"?"Control a model of inhalation and exhalation with arm movement.":"Measure joint geometry and count movement using separate stable state machines."} ai={cameraFunction} limit={mode==="skeleton"?"Bone positions are educational approximations based on pose landmarks. The camera does not see bones.":mode==="respiratory"?"Arm gestures control the model; lung capacity is not measured.":"This is not medical posture analysis or exercise coaching."}>{mode==="skeleton"?<div className="bone-list">{["Skull · fixed joints","Clavicle · shoulder support","Humerus · upper arm","Radius + Ulna · forearm","Vertebral column · axial support","Pelvis · ball-and-socket hip","Femur · thigh","Patella · kneecap","Tibia + Fibula · lower leg"].map(x=><span key={x}>{x}</span>)}</div>:mode==="respiratory"?<div className="breath-steps"><b>{inhaling?"DIAPHRAGM CONTRACTS ↓":"DIAPHRAGM RELAXES ↑"}</b><span>{inhaling?"Chest volume increases · air enters":"Chest volume decreases · air exits"}</span></div>:<KnowledgeCheck questions={["Hold a T-pose","Raise left arm","Raise right arm","Perform one squat","Perform one jumping jack"]}/>}</LabIntro></div>
 }
 
-function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){const leftBlink=blendshapes.eyeBlinkLeft??0;const rightBlink=blendshapes.eyeBlinkRight??0;const blink=(leftBlink+rightBlink)/2;const lookRight=(blendshapes.eyeLookOutLeft??0)+(blendshapes.eyeLookInRight??0);const lookLeft=(blendshapes.eyeLookInLeft??0)+(blendshapes.eyeLookOutRight??0);const lookDown=(blendshapes.eyeLookDownLeft??0)+(blendshapes.eyeLookDownRight??0);const lookUp=(blendshapes.eyeLookUpLeft??0)+(blendshapes.eyeLookUpRight??0);const brow=Math.max(blendshapes.browInnerUp??0,blendshapes.browOuterUpLeft??0,blendshapes.browOuterUpRight??0);const squint=((blendshapes.eyeSquintLeft??0)+(blendshapes.eyeSquintRight??0))/2;const style={"--eye-open":String(clamp(1-blink*.96,.04,1)),"--eye-x":`${clamp((lookRight-lookLeft)*18,-18,18)}px`,"--eye-y":`${clamp((lookDown-lookUp)*10,-10,10)}px`,"--brow-lift":`${-clamp(brow*14,0,14)}px`,"--eye-squint":`${-clamp(squint*10,0,10)}px`} as React.CSSProperties;return <div className="tracked-eye-panel" style={style}><small>LIVE EYE-MUSCLE AVATAR</small><div className="tracked-eye"><i className="eye-brow"/><i className="eye-muscle eye-muscle-upper"/><div className="tracked-eye-ball"><i className="tracked-iris"><b/></i></div><i className="eye-muscle eye-muscle-lower"/></div><span>{blink>.55?"BLINKING WITH YOU":"MOVE YOUR EYES · THEN BLINK"}</span></div>}
+function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
+  const leftBlink=blendshapes.eyeBlinkLeft??0;
+  const rightBlink=blendshapes.eyeBlinkRight??0;
+  const blink=(leftBlink+rightBlink)/2;
+  const lookRight=(blendshapes.eyeLookOutLeft??0)+(blendshapes.eyeLookInRight??0);
+  const lookLeft=(blendshapes.eyeLookInLeft??0)+(blendshapes.eyeLookOutRight??0);
+  const lookDown=(blendshapes.eyeLookDownLeft??0)+(blendshapes.eyeLookDownRight??0);
+  const lookUp=(blendshapes.eyeLookUpLeft??0)+(blendshapes.eyeLookUpRight??0);
+  const brow=Math.max(blendshapes.browInnerUp??0,blendshapes.browOuterUpLeft??0,blendshapes.browOuterUpRight??0);
+  const squint=((blendshapes.eyeSquintLeft??0)+(blendshapes.eyeSquintRight??0))/2;
+  const closed=clamp(blink+squint*.22,0,1);
+  const style={
+    "--eye-x":`${clamp((lookRight-lookLeft)*18,-18,18)}px`,
+    "--eye-y":`${clamp((lookDown-lookUp)*10,-10,10)}px`,
+    "--brow-lift":`${-clamp(brow*14,0,14)}px`,
+    "--upper-lid":`${-62+closed*58}px`,
+    "--lower-lid":`${62-closed*58}px`,
+    "--eye-squint":`${-clamp(squint*8,0,8)}px`,
+  } as React.CSSProperties;
+  return <div className="tracked-eye-panel" style={style}>
+    <small>LIVE EYE-MUSCLE AVATAR</small>
+    <div className="tracked-eye">
+      <i className="eye-brow"/>
+      <i className="eye-muscle eye-muscle-upper"/>
+      <div className="tracked-eye-socket">
+        <div className="tracked-eye-ball">
+          <i className="eye-tear-duct"/>
+          <i className="tracked-iris"><b/><em/></i>
+          <i className="eye-sclera-gloss"/>
+        </div>
+        <i className="tracked-lid tracked-lid-upper"/>
+        <i className="tracked-lid tracked-lid-lower"/>
+        <i className="eye-lashes"/>
+      </div>
+      <i className="eye-muscle eye-muscle-lower"/>
+    </div>
+    <span>{blink>.55?"BLINKING WITH YOU":"MOVE YOUR EYES · THEN BLINK"}</span>
+  </div>
+}
 
 function EyeLab(){const [frame,setFrame]=useState<VisionFrame>({landmarks:[],fps:0});const [defect,setDefect]=useState("normal");const [power,setPower]=useState(0);const b=frame.blendshapes??{};const blink=((b.eyeBlinkLeft??0)+(b.eyeBlinkRight??0))/2;const gaze=(b.eyeLookOutLeft??0)>.35?"RIGHT":(b.eyeLookOutRight??0)>.35?"LEFT":"CENTRE";return <div className="experience two-column"><div><VisionStage kind="face" onFrame={setFrame}/><TrackedEye blendshapes={b}/><div className="metric-grid"><span><small>GAZE ESTIMATE</small><b>{gaze}</b></span><span><small>EYE OPENNESS</small><b>{Math.round((1-blink)*100)}%</b></span><span><small>BLINK</small><b>{blink>.55?"YES":"NO"}</b></span><span><small>STATUS</small><b>NON-MEDICAL</b></span></div></div><LabIntro objective="Link visible eye landmarks with the optics of image formation." ai="Face Landmarker estimates facial geometry and blendshape movement." limit="Gaze and blink values are approximate and not diagnostic or medical-grade."><div className={`eye-model ${defect}`}><div className="cornea"/><div className="iris"/><div className="lens"/><div className="retina"/><div className="optic-nerve"/><i className="eye-ray"/><b>{defect==="normal"?"IMAGE ON RETINA":defect==="myopia"?"IMAGE BEFORE RETINA":defect==="hypermetropia"?"IMAGE BEHIND RETINA":"FOCUS RANGE REDUCED"}</b></div><div className="mode-tabs">{["normal","myopia","hypermetropia","presbyopia"].map(x=><button key={x} className={defect===x?"active":""} onClick={()=>setDefect(x)}>{x}</button>)}</div><label>Corrective lens power <input type="range" min="-5" max="5" step=".25" value={power} onChange={e=>setPower(+e.target.value)}/><b>{power} D</b></label><p>{defect==="myopia"?"Concave lens":defect==="hypermetropia"?"Convex lens":defect==="presbyopia"?"Reading/bifocal correction":"No correction"}</p></LabIntro></div>}
 
@@ -288,7 +326,44 @@ function QuizLab(){
 
 function SystemLab(){return <div className="system-lab"><div className="big-pipeline">{[{n:"01",t:"Camera",p:"A 640 × 480 frame stays in the browser."},{n:"02",t:"Pretrained model",p:"MediaPipe performs inference on the new frame."},{n:"03",t:"Landmarks",p:"The model estimates hand, face or pose points with confidence."},{n:"04",t:"Rules",p:"Stable geometry becomes a gesture, joint angle or pointer."},{n:"05",t:"Simulation",p:"Physics and science rules update the activity."},{n:"06",t:"Arduino",p:"Beat the Robot sends only R, P or S at 115200 baud."},{n:"07",t:"Two servos",p:"D9 moves index + middle; D10 moves ring + pinky."}].map(x=><article key={x.n}><span>{x.n}</span><h3>{x.t}</h3><p>{x.p}</p></article>)}</div><div className="ethics-grid"><article><b>TRAINING DATA</b><p>Examples used before deployment teach the model visual patterns.</p></article><article><b>INFERENCE</b><p>The already-trained model estimates landmarks from a new frame.</p></article><article><b>BIAS</b><p>Unbalanced training examples may cause uneven performance.</p></article><article><b>LIMITATIONS</b><p>Lighting, blur and occlusion reduce confidence.</p></article><article><b>PRIVACY</b><p>Live frames are processed locally and are not used for identity.</p></article><article><b>AI vs SIMULATION</b><p>AI estimates landmarks. Formulas, diagrams and animations follow authored rules.</p></article></div></div>}
 
-function KnowledgeCheck({questions}:{questions:string[]}){return <div className="knowledge-check"><small>KNOWLEDGE CHECK</small>{questions.map((q,i)=><button key={q}><span>{i+1}</span>{q}</button>)}</div>}
+const KNOWLEDGE_ANSWERS:Record<string,string>={
+  "Why are 21 points useful?":"They describe the wrist and every major finger joint, so software can measure bends, distances and gestures.",
+  "What causes occlusion?":"Occlusion happens when one hand part, another object or the edge of the frame hides a landmark from the camera.",
+  "Where could pinch detection help?":"Pinch detection can control drag-and-drop tools, accessible interfaces, AR objects and robot commands.",
+  "Why do plant cells need chloroplasts?":"Chloroplasts contain chlorophyll and absorb light energy for photosynthesis, allowing the plant to make glucose.",
+  "Which structure releases energy?":"Mitochondria release usable energy from food during aerobic respiration.",
+  "What protects a plant cell?":"The rigid cellulose cell wall protects and supports a plant cell; the cell membrane controls what enters and leaves.",
+  "Hold a T-pose":"Stretch both arms sideways at shoulder height until the T-pose indicator turns green.",
+  "Raise left arm":"Lift your left wrist above your left shoulder until the activity indicator turns green.",
+  "Raise right arm":"Lift your right wrist above your right shoulder until the activity indicator turns green.",
+  "Perform one squat":"Bend both knees, lower your hips, then stand fully again. The state machine counts one complete cycle.",
+  "Perform one jumping jack":"Move from arms-down/feet-together to arms-up/feet-apart and return to complete one count.",
+  "Can geometry reveal character? No.":"No. Facial geometry cannot reveal personality, honesty, intelligence or character.",
+  "Does this identify you? No.":"No. This experience animates landmarks locally and does not perform identity recognition.",
+  "What affects tracking? Light and occlusion.":"Uneven light, motion blur, camera angle and landmarks hidden by hair, hands or objects can reduce tracking quality.",
+  "Build ethanol":"Choose Ethanol. Its molecular formula is C₂H₅OH and it contains the alcohol functional group −OH.",
+  "Build ethene":"Choose Ethene. Its formula is C₂H₄ and the two carbon atoms share a double bond.",
+  "Identify the functional group":"The displayed molecule card names its group—for example, −OH is alcohol and −COOH is carboxylic acid.",
+};
+function KnowledgeCheck({questions}:{questions:string[]}){
+  const [open,setOpen]=useState<number|null>(null);
+  const [viewed,setViewed]=useState<number[]>([]);
+  const toggle=(index:number)=>{
+    setOpen(current=>current===index?null:index);
+    setViewed(current=>current.includes(index)?current:[...current,index]);
+  };
+  return <div className="knowledge-check">
+    <div className="knowledge-heading"><small>KNOWLEDGE CHECK</small><span>{viewed.length}/{questions.length} explored</span></div>
+    {questions.map((q,i)=><div className={`knowledge-item ${open===i?"open":""}`} key={q}>
+      <button type="button" aria-expanded={open===i} aria-controls={`knowledge-answer-${i}`} onClick={()=>toggle(i)}>
+        <span>{viewed.includes(i)?"✓":i+1}</span><b>{q}</b><i aria-hidden="true">{open===i?"−":"+"}</i>
+      </button>
+      <div id={`knowledge-answer-${i}`} className="knowledge-answer" hidden={open!==i}>
+        <p>{KNOWLEDGE_ANSWERS[q]??"Use the activity above to test this idea, then explain what you observed."}</p>
+      </div>
+    </div>)}
+  </div>
+}
 function AttractScreen({onStart}:{onStart:()=>void}){const [i,setI]=useState(0);const lines=["Beat the Robot","Control Science with Your Hands","See How AI Tracks Your Body","Take the Gesture-Controlled Science Quiz"];useEffect(()=>{const t=setInterval(()=>setI(x=>(x+1)%lines.length),2600);return()=>clearInterval(t)},[]);return <button className="attract-screen" onClick={onStart}><span>VISION AI SCIENCE LAB</span><h2>{lines[i]}</h2><b>TOUCH ANYWHERE TO START</b></button>}
 
 export default function SciencePlatform(){
