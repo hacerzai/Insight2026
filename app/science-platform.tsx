@@ -267,7 +267,10 @@ function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
   const lookUp=(blendshapes.eyeLookUpLeft??0)+(blendshapes.eyeLookUpRight??0);
   const brow=Math.max(blendshapes.browInnerUp??0,blendshapes.browOuterUpLeft??0,blendshapes.browOuterUpRight??0);
   const squint=((blendshapes.eyeSquintLeft??0)+(blendshapes.eyeSquintRight??0))/2;
-  const closed=clamp(blink+squint*.22,0,1);
+  // Calibrate normal Face Landmarker blink peaks to the avatar’s full eyelid travel.
+  const closed=clamp((Math.max(leftBlink,rightBlink)-.08)/.5+squint*.18,0,1);
+  const upperLid=-102+closed*98;
+  const lowerLid=102-closed*98;
   const style={
     "--eye-x":`${clamp((lookRight-lookLeft)*18,-18,18)}px`,
     "--eye-y":`${clamp((lookDown-lookUp)*10,-10,10)}px`,
@@ -320,8 +323,8 @@ function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
               <circle cx="16" cy="17" r="4" fill="#d9ffff" opacity=".72"/>
             </g>
             <ellipse className="eye-gloss-vector" cx="204" cy="76" rx="112" ry="18"/>
-            <path className="tracked-lid-vector tracked-lid-vector-upper" d="M-8-5H428V119C323 62 102 62-8 119Z"/>
-            <path className="tracked-lid-vector tracked-lid-vector-lower" d="M-8 106C103 162 320 162 428 106V230H-8Z"/>
+            <path className="tracked-lid-vector tracked-lid-vector-upper" d="M-8-5H428V119C323 62 102 62-8 119Z" style={{transform:`translateY(${upperLid}px)`}}/>
+            <path className="tracked-lid-vector tracked-lid-vector-lower" d="M-8 106C103 162 320 162 428 106V230H-8Z" style={{transform:`translateY(${lowerLid}px)`}}/>
           </g>
           <path className="eye-outline-vector" d="M34 112C96 39 303 38 386 111C308 183 101 184 34 112Z"/>
           <path className="eye-lash-vector" d="M42 107C111 40 300 38 379 104"/>
