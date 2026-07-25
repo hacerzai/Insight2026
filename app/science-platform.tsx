@@ -267,13 +267,14 @@ function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
   const lookUp=(blendshapes.eyeLookUpLeft??0)+(blendshapes.eyeLookUpRight??0);
   const brow=Math.max(blendshapes.browInnerUp??0,blendshapes.browOuterUpLeft??0,blendshapes.browOuterUpRight??0);
   const squint=((blendshapes.eyeSquintLeft??0)+(blendshapes.eyeSquintRight??0))/2;
-  const closed=clamp(blink+squint*.22,0,1);
+  // Blink scores usually peak below 1. Calibrate them so a real blink fully closes the avatar.
+  const closed=clamp((Math.max(leftBlink,rightBlink)-.08)/.5+squint*.12,0,1);
+  const upperLidOffset=-102+closed*98;
+  const lowerLidOffset=102-closed*98;
   const style={
     "--eye-x":`${clamp((lookRight-lookLeft)*18,-18,18)}px`,
     "--eye-y":`${clamp((lookDown-lookUp)*10,-10,10)}px`,
     "--brow-lift":`${-clamp(brow*14,0,14)}px`,
-    "--upper-lid":`${-102+closed*98}px`,
-    "--lower-lid":`${102-closed*98}px`,
     "--eye-squint":`${-clamp(squint*8,0,8)}px`,
   } as React.CSSProperties;
   return <div className="tracked-eye-panel" style={style}>
@@ -320,8 +321,8 @@ function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
               <circle cx="16" cy="17" r="4" fill="#d9ffff" opacity=".72"/>
             </g>
             <ellipse className="eye-gloss-vector" cx="204" cy="76" rx="112" ry="18"/>
-            <path className="tracked-lid-vector tracked-lid-vector-upper" d="M-8-5H428V119C323 62 102 62-8 119Z"/>
-            <path className="tracked-lid-vector tracked-lid-vector-lower" d="M-8 106C103 162 320 162 428 106V230H-8Z"/>
+            <path className="tracked-lid-vector tracked-lid-vector-upper" transform={`translate(0 ${upperLidOffset})`} d="M-8-5H428V119C323 62 102 62-8 119Z"/>
+            <path className="tracked-lid-vector tracked-lid-vector-lower" transform={`translate(0 ${lowerLidOffset})`} d="M-8 106C103 162 320 162 428 106V230H-8Z"/>
           </g>
           <path className="eye-outline-vector" d="M34 112C96 39 303 38 386 111C308 183 101 184 34 112Z"/>
           <path className="eye-lash-vector" d="M42 107C111 40 300 38 379 104"/>
@@ -330,7 +331,7 @@ function TrackedEye({blendshapes}:{blendshapes:Record<string,number>}){
         <path className="eye-brow-vector" d="M96 50C172 17 279 21 340 49"/>
       </svg>
     </div>
-    <span>{blink>.55?"BLINKING WITH YOU":"MOVE YOUR EYES · THEN BLINK"}</span>
+    <span>{closed>.7?"BLINKING WITH YOU":"MOVE YOUR EYES · THEN BLINK"}</span>
   </div>
 }
 
