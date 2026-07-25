@@ -476,8 +476,6 @@
 .eye-lash-vector{fill:none;stroke:#33212d;stroke-width:7;stroke-linecap:round;filter:drop-shadow(0 3px 2px rgba(0,0,0,.45))}
 .eye-tear-vector{fill:#e7838d;stroke:#9d4355;stroke-width:3}
 .tracked-lid-vector{fill:url(#tracked-skin);transition:transform 45ms linear}
-.tracked-lid-vector-upper{transform:translateY(var(--upper-lid))}
-.tracked-lid-vector-lower{transform:translateY(var(--lower-lid))}
 .eye-brow-vector{
   fill:none;
   stroke:#704536;
