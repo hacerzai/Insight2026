@@ -24,6 +24,7 @@ await build({
 await Promise.all([
   copyFile("app/globals.css", join(assetsDir, "globals.css")),
   copyFile("app/science-platform.css", join(assetsDir, "science-platform.css")),
+  copyFile("app/course-explorer.css", join(assetsDir, "course-explorer.css")),
 ]);
 
 for (const entry of await readdir("public", { withFileTypes: true })) {
